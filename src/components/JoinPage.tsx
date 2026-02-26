@@ -338,14 +338,9 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       <div className="min-h-screen bg-[#1a1a2e] flex flex-col max-w-lg mx-auto">
         {/* ── Top bar ── */}
         <div className="px-4 pt-5 pb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rausch to-[#D70466] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {teamName.charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <p className="text-white/50 text-[11px] font-medium uppercase tracking-wider">Your team</p>
-              <p className="text-white font-bold text-[17px] leading-tight truncate">{teamName}</p>
-            </div>
+          <div className="min-w-0">
+            <p className="text-white/50 text-[11px] font-medium uppercase tracking-wider">Your team</p>
+            <p className="text-white font-bold text-[17px] leading-tight truncate">{teamName}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -461,37 +456,35 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
             </div>
           ) : (
             <div className="flex-1 flex flex-col min-h-0">
-              {/* Channel switcher */}
-              <div className="px-4 py-2 flex gap-1.5">
+              {/* Channel switcher + voice — compact single row */}
+              <div className="px-4 py-1.5 flex items-center gap-1.5">
                 <button
                   onClick={() => setChatChannel('__lobby__')}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                     chatChannel === '__lobby__'
                       ? 'bg-white/15 text-white'
-                      : 'text-white/40 hover:text-white/60 hover:bg-white/5'
+                      : 'text-white/35 hover:text-white/60 hover:bg-white/5'
                   }`}
                 >
                   # Lobby
                 </button>
                 <button
                   onClick={() => setChatChannel(teamName)}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                     chatChannel === teamName
                       ? 'bg-white/15 text-white'
-                      : 'text-white/40 hover:text-white/60 hover:bg-white/5'
+                      : 'text-white/35 hover:text-white/60 hover:bg-white/5'
                   }`}
                 >
                   # {teamName}
                 </button>
-              </div>
-
-              {/* Voice bar */}
-              <div className="px-4 pb-2">
-                <VoiceBar
-                  sessionId={sessionId}
-                  channel={chatChannel}
-                  playerName={name.trim()}
-                />
+                <div className="ml-auto">
+                  <VoiceBar
+                    sessionId={sessionId}
+                    channel={chatChannel}
+                    playerName={name.trim()}
+                  />
+                </div>
               </div>
 
               {/* Chat fills remaining space */}
