@@ -150,14 +150,22 @@
   flex-shrink: 0;
 }
 
+.dc-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
 .dc-messages::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
 }
 
 .dc-messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 4px;
+}
+
+.dc-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .dc-msg:hover {
