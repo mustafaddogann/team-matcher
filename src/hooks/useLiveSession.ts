@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { type RealtimeChannel } from '@supabase/supabase-js'
-import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { getSupabase, getSupabaseAdmin, isSupabaseConfigured } from '../lib/supabase'
 import type { Participant, Team } from '../types'
 import { generateId } from './useTeamMatcher'
 
@@ -180,12 +180,13 @@ export function useLiveSession(activeSessionName: string | null = null) {
       localStorage.removeItem(`${LIVE_KEY_PREFIX}${activeSessionName}`)
       localStorage.removeItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
 
-      // Clean up DB records so join links stop working
-      if (supabase) {
+      // Clean up DB records so join links stop working (use admin client to bypass RLS)
+      const admin = getSupabaseAdmin()
+      if (admin) {
         await Promise.allSettled([
-          supabase.from('live_players').delete().eq('session_id', activeSessionName),
-          supabase.from('session_teams').delete().eq('session_id', activeSessionName),
-          supabase.from('session_teams').delete().eq('session_id', `${activeSessionName}:kicks`),
+          admin.from('live_players').delete().eq('session_id', activeSessionName),
+          admin.from('session_teams').delete().eq('session_id', activeSessionName),
+          admin.from('session_teams').delete().eq('session_id', `${activeSessionName}:kicks`),
         ])
       }
     }
