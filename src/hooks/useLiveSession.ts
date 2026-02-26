@@ -169,14 +169,11 @@ export function useLiveSession(activeSessionName: string | null = null) {
     localStorage.removeItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
 
     // Write a marker so the join page knows this session exists
-    const admin = getSupabaseAdmin()
-    if (admin) {
-      admin.from('session_teams').upsert({
-        session_id: `${activeSessionName}:active`,
-        teams_json: JSON.stringify({ active: true }),
-        published_at: new Date().toISOString(),
-      }).then(() => {})
-    }
+    supabase.from('session_teams').upsert({
+      session_id: `${activeSessionName}:active`,
+      teams_json: JSON.stringify({ active: true }),
+      published_at: new Date().toISOString(),
+    }).then(() => {})
   }, [activeSessionName])
 
   const stopSession = useCallback(async () => {
