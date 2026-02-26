@@ -565,6 +565,16 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
 
         {/* Lobby voice + chat while waiting */}
         <div className="flex-1 flex flex-col min-h-0 px-4 pb-2 space-y-2">
+          {/* Lobby header */}
+          <div className="flex items-center gap-2 px-1 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-white/30 text-sm font-bold">#</span>
+              <span className="text-white/70 text-[13px] font-semibold">Lobby</span>
+            </div>
+            <div className="h-px flex-1 bg-white/[0.06]" />
+            <span className="text-white/25 text-[11px]">Chat while you wait</span>
+          </div>
+
           <VoiceBar
             sessionId={sessionId}
             channel="__lobby__"
