@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '../lib/supabase'
-import BackgroundWidgets from './BackgroundWidgets'
 import TeamChat from './TeamChat'
 import VoiceBar from './VoiceBar'
 
@@ -674,16 +673,18 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   // ── KICKED ──
   if (status === 'kicked') {
     return (
-      <div className="min-h-screen bg-kazan flex items-center justify-center p-4">
-        <BackgroundWidgets />
-        <div className="bg-white rounded-2xl shadow-airbnb-lg p-8 max-w-sm w-full text-center animate-fade-in">
-          <div className="w-16 h-16 bg-rausch/10 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="tm-app-bg min-h-screen flex items-center justify-center p-4">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-[30%] -right-[10%] w-[50%] h-[50%] rounded-full bg-[#FF385C]/[0.04] blur-[100px]" />
+        </div>
+        <div className="relative z-10 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-8 max-w-sm w-full text-center animate-fade-in">
+          <div className="w-16 h-16 rounded-2xl bg-rausch/15 border border-rausch/20 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-rausch" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-hackberry mb-2">Removed from Session</h1>
-          <p className="text-hof mb-6">
+          <h1 className="text-2xl font-extrabold text-white mb-2">Removed from Session</h1>
+          <p className="text-white/40 mb-6">
             The host removed you from this session.
           </p>
           <button
@@ -692,7 +693,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
               setSkill(5)
               setStatus('idle')
             }}
-            className="btn-generate w-full text-base py-3.5"
+            className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-[#FF385C] to-[#D70466] hover:shadow-lg hover:shadow-rausch/20 active:scale-[0.97] transition-all"
           >
             Rejoin
           </button>
@@ -705,35 +706,40 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   const isEditing = status === 'editing'
 
   return (
-    <div className="min-h-screen bg-kazan flex items-center justify-center p-4">
-      <BackgroundWidgets />
-      <div className="bg-white rounded-2xl shadow-airbnb-lg p-8 max-w-sm w-full animate-fade-in">
+    <div className="tm-app-bg min-h-screen flex items-center justify-center p-4">
+      {/* Ambient glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-[30%] left-[10%] w-[50%] h-[50%] rounded-full bg-[#FF385C]/[0.04] blur-[100px]" />
+        <div className="absolute -bottom-[20%] -right-[10%] w-[40%] h-[40%] rounded-full bg-[#00A699]/[0.03] blur-[80px]" />
+      </div>
+
+      <div className="relative z-10 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-7 max-w-sm w-full animate-fade-in">
         {/* Session badge */}
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rausch to-[#D70466] flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF385C] to-[#D70466] flex items-center justify-center flex-shrink-0 shadow-lg shadow-rausch/20">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-hackberry leading-tight truncate">
+            <h1 className="text-xl font-extrabold text-white leading-tight truncate">
               {isEditing ? 'Update Info' : sessionId}
             </h1>
-            <p className="text-xs text-foggy">
+            <p className="text-[12px] text-white/30">
               {isEditing ? 'Edit your details below' : 'Team matching session'}
             </p>
           </div>
         </div>
 
         {!isEditing && (
-          <p className="text-sm text-hof mb-5 leading-relaxed">
+          <p className="text-[13px] text-white/40 mb-6 leading-relaxed">
             Enter your nickname and rate your skill level so the host can build balanced teams.
           </p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-hackberry mb-1.5">
+            <label className="block text-[13px] font-semibold text-white/60 mb-1.5">
               Nickname
             </label>
             <input
@@ -743,15 +749,15 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
               required
               autoFocus
               placeholder="What should we call you?"
-              className="input-field text-lg py-3 w-full"
+              className="block w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-3 text-white text-lg placeholder-white/20 focus:border-white/20 focus:ring-0 focus:outline-none focus:bg-white/[0.07] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-hackberry mb-1">
+            <label className="block text-[13px] font-semibold text-white/60 mb-1">
               Skill Level
             </label>
-            <p className="text-xs text-foggy mb-2.5">1 = beginner, 10 = expert</p>
+            <p className="text-[11px] text-white/25 mb-3">1 = beginner, 10 = expert</p>
             <div className="flex gap-1.5 justify-between">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                 <button
@@ -760,8 +766,8 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
                   onClick={() => setSkill(n)}
                   className={`w-9 h-9 rounded-full text-sm font-bold transition-all duration-150 ${
                     skill === n
-                      ? 'bg-rausch text-white scale-110'
-                      : 'bg-kazan text-hof hover:bg-kazan-dark'
+                      ? 'bg-gradient-to-br from-[#FF385C] to-[#D70466] text-white scale-110 shadow-lg shadow-rausch/25'
+                      : 'bg-white/[0.06] text-white/40 hover:bg-white/[0.1] hover:text-white/60 border border-white/[0.04]'
                   }`}
                 >
                   {n}
@@ -777,16 +783,16 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           <button
             type="submit"
             disabled={!name.trim() || status === 'submitting'}
-            className="btn-generate w-full text-base py-3.5"
+            className="w-full py-3.5 rounded-xl font-bold text-[15px] text-white bg-gradient-to-r from-[#FF385C] to-[#D70466] hover:shadow-lg hover:shadow-rausch/25 hover:translate-y-[-1px] active:scale-[0.97] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
           >
-            {status === 'submitting' ? 'Saving...' : isEditing ? 'Save Changes' : 'Join Game'}
+            {status === 'submitting' ? 'Joining...' : isEditing ? 'Save Changes' : 'Join Game'}
           </button>
 
           {isEditing && (
             <button
               type="button"
               onClick={() => { setStatus('success'); setName(originalName); setErrorMsg('') }}
-              className="w-full text-sm text-foggy hover:text-hackberry font-medium transition-colors"
+              className="w-full text-sm text-white/30 hover:text-white/60 font-medium transition-colors"
             >
               Cancel
             </button>
