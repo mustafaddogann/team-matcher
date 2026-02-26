@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-hackberry antialiased font-sans;
+    background-color: #FAFAFA;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    position: relative;
+  }
+
+  /* Airbnb-style subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #DDDDDD;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #B0B0B0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-rausch text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+      hover:bg-rausch-dark active:scale-[0.97] transition-all duration-200
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-hackberry px-5 py-2.5 rounded-xl font-semibold text-sm
+      border border-hackberry/[0.12]
+      hover:bg-kazan hover:border-hackberry/[0.25] hover:shadow-airbnb-border
+      active:scale-[0.97] transition-all duration-200
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-white text-rausch px-5 py-2.5 rounded-xl font-semibold text-sm
+      border border-rausch/20
+      hover:bg-rausch/5 hover:border-rausch/40
+      active:scale-[0.97] transition-all duration-200
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply block w-full rounded-xl border border-hackberry/[0.12] bg-white
+      px-3.5 py-2.5 text-hackberry placeholder-foggy/50
+      focus:border-hackberry/40 focus:ring-0 focus:outline-none
+      focus:shadow-airbnb-border
+      transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-black/[0.06] shadow-card-3d;
+  }
+
+  /* Airbnb-style gradient CTA button */
+  .btn-generate {
+    @apply relative text-white px-7 py-3 rounded-xl font-bold text-sm
+      transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+      shadow-airbnb-md hover:shadow-airbnb-lg;
+    background: linear-gradient(to right, #E61E4D, #E31C5F, #D70466);
+  }
+
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.02);
+  }
+
+  .btn-generate:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* Score gauge */
+  .score-gauge {
+    @apply relative inline-flex items-center justify-center;
+  }
+
+  .score-gauge svg {
+    transform: rotate(-90deg);
+  }
+
+  /* 3D card hover effect */
+  .card-3d {
+    @apply transition-all duration-300;
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+
+  .card-3d:hover {
+    @apply shadow-card-3d-hover;
+    transform: translateY(-2px);
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-subtle {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+  }
+}
+
+@layer utilities {
+  .bg-dot-grid {
+    background-image: radial-gradient(circle, rgba(118,118,118,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .bg-mesh-gradient {
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(255, 56, 92, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0, 166, 153, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(252, 100, 45, 0.025) 0%, transparent 50%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #E61E4D 0%, #D70466 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-gradient {
+    border-image: linear-gradient(135deg, rgba(255, 56, 92, 0.2), rgba(0, 166, 153, 0.15)) 1;
+  }
+}
