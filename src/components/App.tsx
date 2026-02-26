@@ -199,7 +199,7 @@ export default function App() {
         remotePlayerCount={live.remotePlayers.length}
       />
 
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <main className="mx-auto px-4 py-8 sm:px-6 lg:px-10 xl:px-16 space-y-8">
         <ParticipantTable
           participants={tm.participants}
           config={tm.config}

@@ -35,7 +35,7 @@ export default function Header({
 
   return (
     <header className="glass border-b border-black/[0.06] sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 py-3.5 sm:px-6 lg:px-8">
+      <div className="mx-auto px-4 py-3.5 sm:px-6 lg:px-10 xl:px-16">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-extrabold tracking-tight">
