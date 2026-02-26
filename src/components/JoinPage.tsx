@@ -573,53 +573,84 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   // ── WAITING FOR TEAMS ──
   if (status === 'success') {
     return (
-      <div className="bg-[#1a1a2e] flex flex-col max-w-2xl mx-auto w-full" style={{ height: '100dvh' }}>
-        {/* Top bar */}
-        <div className="px-4 pt-6 pb-4 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-babu/20 flex items-center justify-center mx-auto mb-3">
-            <svg className="w-7 h-7 text-babu" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-white mb-1">You're In!</h1>
-          <p className="text-white/50 text-sm">
-            <span className="text-white/80 font-semibold">{name}</span> &middot; Skill {skill}
-          </p>
+      <div className="tm-app-bg flex flex-col max-w-2xl mx-auto w-full" style={{ height: '100dvh' }}>
+        {/* Ambient glow */}
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-[30%] left-[10%] w-[50%] h-[50%] rounded-full bg-[#00A699]/[0.04] blur-[100px]" />
+          <div className="absolute -bottom-[20%] right-[5%] w-[40%] h-[40%] rounded-full bg-[#FF385C]/[0.03] blur-[80px]" />
         </div>
 
-        {/* Spinner + waiting */}
-        <div className="flex flex-col items-center gap-3 py-4">
-          <div className="w-6 h-6 border-2 border-rausch border-t-transparent rounded-full animate-spin" />
-          <p className="text-white/30 text-[13px]">Waiting for the host to assign teams...</p>
-        </div>
+        {/* ── Status card ── */}
+        <div className="relative z-10 px-5 pt-6 pb-2">
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-5 animate-fade-in">
+            <div className="flex items-center gap-4">
+              {/* Player avatar */}
+              <div className="relative flex-shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-babu to-[#00867A] flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-babu/20">
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-babu border-2 border-[#0f0f23] flex items-center justify-center">
+                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-center gap-4 pb-4">
-          <button
-            onClick={handleEdit}
-            className="text-sm text-white/40 hover:text-white/70 font-medium transition-colors"
-          >
-            Edit
-          </button>
-          <span className="text-white/15">|</span>
-          <button
-            onClick={handleLeave}
-            className="text-sm text-white/40 hover:text-rausch font-medium transition-colors"
-          >
-            Leave
-          </button>
-        </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-extrabold text-lg leading-tight truncate">{name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] font-semibold text-babu bg-babu/10 px-2 py-0.5 rounded-full">
+                    Skill {skill}
+                  </span>
+                  <span className="text-[11px] text-white/25">&middot;</span>
+                  <span className="text-[11px] text-white/30">{sessionId}</span>
+                </div>
+              </div>
 
-        {/* Lobby voice + chat while waiting */}
-        <div className="flex-1 flex flex-col min-h-0 px-4 pb-2 space-y-2">
-          {/* Lobby header */}
-          <div className="flex items-center gap-2 px-1 pt-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-white/30 text-sm font-bold">#</span>
-              <span className="text-white/70 text-[13px] font-semibold">Lobby</span>
+              {/* Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={handleEdit}
+                  className="text-white/25 hover:text-white/60 hover:bg-white/5 transition-all p-2.5 rounded-xl"
+                  title="Edit name or skill"
+                >
+                  <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleLeave}
+                  className="text-white/25 hover:text-rausch hover:bg-rausch/10 transition-all p-2.5 rounded-xl"
+                  title="Leave session"
+                >
+                  <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="h-px flex-1 bg-white/[0.06]" />
-            <span className="text-white/25 text-[11px]">Chat while you wait</span>
+
+            {/* Waiting indicator */}
+            <div className="mt-4 pt-3.5 border-t border-white/[0.04] flex items-center gap-3">
+              <div className="relative w-5 h-5 flex-shrink-0">
+                <div className="absolute inset-0 rounded-full border-2 border-white/[0.06]" />
+                <div className="absolute inset-0 rounded-full border-2 border-rausch border-t-transparent animate-spin" />
+              </div>
+              <p className="text-white/35 text-[13px]">Waiting for the host to assign teams...</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Lobby chat ── */}
+        <div className="relative z-10 flex-1 flex flex-col min-h-0 px-5 pb-2 pt-3 space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <div className="flex items-center gap-1.5 bg-white/[0.06] px-3 py-1.5 rounded-lg">
+              <span className="text-white/25 text-[10px] font-bold">#</span>
+              <span className="text-white/60 text-[12px] font-semibold">Lobby</span>
+            </div>
+            <div className="h-px flex-1 bg-white/[0.04]" />
+            <span className="text-white/20 text-[11px]">Chat while you wait</span>
           </div>
 
           <VoiceBar
