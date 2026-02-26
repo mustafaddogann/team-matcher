@@ -169,7 +169,7 @@ export function useLiveSession(activeSessionName: string | null = null) {
     localStorage.removeItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
   }, [activeSessionName])
 
-  const stopSession = useCallback(() => {
+  const stopSession = useCallback(async () => {
     const supabase = getSupabase()
     if (channelRef.current && supabase) {
       supabase.removeChannel(channelRef.current)
@@ -179,6 +179,15 @@ export function useLiveSession(activeSessionName: string | null = null) {
     if (activeSessionName) {
       localStorage.removeItem(`${LIVE_KEY_PREFIX}${activeSessionName}`)
       localStorage.removeItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
+
+      // Clean up DB records so join links stop working
+      if (supabase) {
+        await Promise.allSettled([
+          supabase.from('live_players').delete().eq('session_id', activeSessionName),
+          supabase.from('session_teams').delete().eq('session_id', activeSessionName),
+          supabase.from('session_teams').delete().eq('session_id', `${activeSessionName}:kicks`),
+        ])
+      }
     }
     pulledIdsRef.current = new Set()
   }, [activeSessionName])
