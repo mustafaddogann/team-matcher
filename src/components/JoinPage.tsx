@@ -345,13 +345,114 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       return a.localeCompare(b)
     })
 
+    const teamsPanel = (
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 md:px-5">
+        {teamEntries.map(([team, members]) => {
+          const isMyTeam = team === teamName
+          return (
+            <div
+              key={team}
+              className={`rounded-xl p-3.5 transition-all ${
+                isMyTeam
+                  ? 'bg-gradient-to-br from-rausch/20 to-[#D70466]/10 border border-rausch/20'
+                  : 'bg-white/[0.05] border border-white/[0.06]'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2.5">
+                <div
+                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold ${
+                    isMyTeam
+                      ? 'bg-rausch text-white'
+                      : 'bg-white/10 text-white/60'
+                  }`}
+                >
+                  {team.charAt(0)}
+                </div>
+                <p className={`text-[13px] font-bold ${isMyTeam ? 'text-white' : 'text-white/70'}`}>
+                  {team}
+                </p>
+                {isMyTeam && (
+                  <span className="text-[10px] font-medium text-rausch/80 bg-rausch/10 px-1.5 py-0.5 rounded-full ml-auto">
+                    YOU
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {members.map(m => {
+                  const isMe = m.toLowerCase() === name.trim().toLowerCase()
+                  return (
+                    <span
+                      key={m}
+                      className={`text-[12px] px-2.5 py-1 rounded-lg font-medium ${
+                        isMe
+                          ? 'bg-rausch text-white'
+                          : isMyTeam
+                            ? 'bg-white/10 text-white/80'
+                            : 'bg-white/[0.06] text-white/50'
+                      }`}
+                    >
+                      {m}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        <div className="pt-1 md:hidden">
+          <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
+        </div>
+      </div>
+    )
+
+    const chatPanel = (
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Channel switcher + voice */}
+        <div className="px-4 py-1.5 flex items-center gap-1.5">
+          <button
+            onClick={() => setChatChannel('__lobby__')}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+              chatChannel === '__lobby__'
+                ? 'bg-white/15 text-white'
+                : 'text-white/35 hover:text-white/60 hover:bg-white/5'
+            }`}
+          >
+            # Lobby
+          </button>
+          <button
+            onClick={() => setChatChannel(teamName)}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+              chatChannel === teamName
+                ? 'bg-white/15 text-white'
+                : 'text-white/35 hover:text-white/60 hover:bg-white/5'
+            }`}
+          >
+            # {teamName}
+          </button>
+          <div className="ml-auto">
+            <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0">
+          <TeamChat
+            sessionId={sessionId}
+            channel={chatChannel}
+            channelLabel={chatChannel === '__lobby__' ? 'Lobby' : chatChannel}
+            playerName={name.trim()}
+          />
+        </div>
+      </div>
+    )
+
     return (
-      <div className="bg-[#1a1a2e] flex flex-col max-w-lg mx-auto" style={{ height: '100dvh' }}>
+      <div className="bg-[#1a1a2e] flex flex-col" style={{ height: '100dvh' }}>
         {/* ── Top bar ── */}
-        <div className="px-4 pt-5 pb-3 flex items-center justify-between">
+        <div className="px-4 md:px-6 pt-4 pb-3 flex items-center justify-between max-w-screen-xl mx-auto w-full">
           <div className="min-w-0">
             <p className="text-white/50 text-[11px] font-medium uppercase tracking-wider">Your team</p>
-            <p className="text-white font-bold text-[17px] leading-tight truncate">{teamName}</p>
+            <p className="text-white font-bold text-[17px] md:text-xl leading-tight truncate">{teamName}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -375,8 +476,8 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           </div>
         </div>
 
-        {/* ── Tab bar ── */}
-        <div className="px-4 flex gap-1 mb-1">
+        {/* ── Mobile: tab bar ── */}
+        <div className="px-4 flex gap-1 mb-1 md:hidden">
           <button
             onClick={() => setActiveTab('teams')}
             className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
@@ -399,116 +500,24 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           </button>
         </div>
 
-        {/* ── Content area ── */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {activeTab === 'teams' ? (
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
-              {teamEntries.map(([team, members]) => {
-                const isMyTeam = team === teamName
-                return (
-                  <div
-                    key={team}
-                    className={`rounded-xl p-3.5 transition-all ${
-                      isMyTeam
-                        ? 'bg-gradient-to-br from-rausch/20 to-[#D70466]/10 border border-rausch/20'
-                        : 'bg-white/[0.05] border border-white/[0.06]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div
-                        className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold ${
-                          isMyTeam
-                            ? 'bg-rausch text-white'
-                            : 'bg-white/10 text-white/60'
-                        }`}
-                      >
-                        {team.charAt(0)}
-                      </div>
-                      <p className={`text-[13px] font-bold ${isMyTeam ? 'text-white' : 'text-white/70'}`}>
-                        {team}
-                      </p>
-                      {isMyTeam && (
-                        <span className="text-[10px] font-medium text-rausch/80 bg-rausch/10 px-1.5 py-0.5 rounded-full ml-auto">
-                          YOU
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {members.map(m => {
-                        const isMe = m.toLowerCase() === name.trim().toLowerCase()
-                        return (
-                          <span
-                            key={m}
-                            className={`text-[12px] px-2.5 py-1 rounded-lg font-medium ${
-                              isMe
-                                ? 'bg-rausch text-white'
-                                : isMyTeam
-                                  ? 'bg-white/10 text-white/80'
-                                  : 'bg-white/[0.06] text-white/50'
-                            }`}
-                          >
-                            {m}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
+        {/* ── Desktop: side-by-side | Mobile: tabbed ── */}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 max-w-screen-xl mx-auto w-full">
+          {/* Desktop: always show both panels */}
+          {/* Mobile: show active tab only */}
 
-              {/* Voice bar at bottom of teams view */}
-              <div className="pt-1">
-                <VoiceBar
-                  sessionId={sessionId}
-                  channel={chatChannel}
-                  playerName={name.trim()}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col min-h-0 animate-slide-up">
-              {/* Channel switcher + voice — compact single row */}
-              <div className="px-4 py-1.5 flex items-center gap-1.5">
-                <button
-                  onClick={() => setChatChannel('__lobby__')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                    chatChannel === '__lobby__'
-                      ? 'bg-white/15 text-white'
-                      : 'text-white/35 hover:text-white/60 hover:bg-white/5'
-                  }`}
-                >
-                  # Lobby
-                </button>
-                <button
-                  onClick={() => setChatChannel(teamName)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                    chatChannel === teamName
-                      ? 'bg-white/15 text-white'
-                      : 'text-white/35 hover:text-white/60 hover:bg-white/5'
-                  }`}
-                >
-                  # {teamName}
-                </button>
-                <div className="ml-auto">
-                  <VoiceBar
-                    sessionId={sessionId}
-                    channel={chatChannel}
-                    playerName={name.trim()}
-                  />
-                </div>
-              </div>
+          {/* Teams panel */}
+          <div className={`md:w-80 lg:w-96 md:flex md:flex-col md:border-r md:border-white/[0.06] md:flex-shrink-0 ${
+            activeTab === 'teams' ? 'flex flex-col flex-1' : 'hidden md:flex'
+          }`}>
+            {teamsPanel}
+          </div>
 
-              {/* Chat fills remaining space */}
-              <div className="flex-1 min-h-0">
-                <TeamChat
-                  sessionId={sessionId}
-                  channel={chatChannel}
-                  channelLabel={chatChannel === '__lobby__' ? 'Lobby' : chatChannel}
-                  playerName={name.trim()}
-                />
-              </div>
-            </div>
-          )}
+          {/* Chat panel */}
+          <div className={`md:flex md:flex-col md:flex-1 md:min-w-0 ${
+            activeTab === 'chat' ? 'flex flex-col flex-1 animate-slide-up md:animate-none' : 'hidden md:flex'
+          }`}>
+            {chatPanel}
+          </div>
         </div>
       </div>
     )
@@ -517,7 +526,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   // ── WAITING FOR TEAMS ──
   if (status === 'success') {
     return (
-      <div className="bg-[#1a1a2e] flex flex-col max-w-lg mx-auto" style={{ height: '100dvh' }}>
+      <div className="bg-[#1a1a2e] flex flex-col max-w-2xl mx-auto w-full" style={{ height: '100dvh' }}>
         {/* Top bar */}
         <div className="px-4 pt-6 pb-4 text-center">
           <div className="w-14 h-14 rounded-2xl bg-babu/20 flex items-center justify-center mx-auto mb-3">
