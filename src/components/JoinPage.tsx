@@ -9,10 +9,10 @@ interface JoinPageProps {
 }
 
 type Status = 'idle' | 'submitting' | 'success' | 'error' | 'editing' | 'kicked'
+type Tab = 'teams' | 'chat'
 
 const JOINED_KEY_PREFIX = 'tm-joined-'
 
-// v2 – edit link on team results
 export default function JoinPage({ sessionId }: JoinPageProps) {
   const savedName = localStorage.getItem(`${JOINED_KEY_PREFIX}${sessionId}`)
   const [name, setName] = useState(savedName || '')
@@ -22,8 +22,8 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   const [teamName, setTeamName] = useState<string | null>(null)
   const [allTeams, setAllTeams] = useState<Record<string, string[]>>({})
   const [chatChannel, setChatChannel] = useState<string>('__lobby__')
-  // The original name stored in DB (for updates)
   const [originalName, setOriginalName] = useState(savedName || '')
+  const [activeTab, setActiveTab] = useState<Tab>('teams')
 
   // Load current skill from DB on mount if already joined
   useEffect(() => {
@@ -55,7 +55,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       const supabase = getSupabase()
       if (!supabase) throw new Error('Session unavailable')
 
-      // Helper: check if a name is genuinely taken (not a leftover from a kicked player)
       const isNameTaken = async (checkName: string): Promise<boolean> => {
         const { data: existing } = await supabase
           .from('live_players')
@@ -66,7 +65,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
 
         if (!existing || existing.length === 0) return false
 
-        // Row exists — check if this player was kicked (stale row)
         const kickKey = `${sessionId}:kicks`
         const { data: kickData } = await supabase
           .from('session_teams')
@@ -77,7 +75,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         if (kickData?.teams_json) {
           const kicked: string[] = JSON.parse(kickData.teams_json)
           if (kicked.some(k => k.toLowerCase() === checkName.toLowerCase())) {
-            // Stale row from a kicked player — clean it up and allow the name
             await supabase
               .from('live_players')
               .delete()
@@ -91,11 +88,9 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       }
 
       if (isUpdate && originalName) {
-        // Updating existing player
         const newName = name.trim()
         const nameChanged = newName.toLowerCase() !== originalName.toLowerCase()
 
-        // If name changed, check the new name isn't taken
         if (nameChanged && await isNameTaken(newName)) {
           setErrorMsg('That name is already taken. Try a different one.')
           setStatus('editing')
@@ -113,7 +108,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         setOriginalName(newName)
         localStorage.setItem(`${JOINED_KEY_PREFIX}${sessionId}`, newName)
       } else {
-        // New player joining
         if (await isNameTaken(name.trim())) {
           setErrorMsg('That name is already taken. Try a different one.')
           setStatus('error')
@@ -131,7 +125,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         localStorage.setItem(`${JOINED_KEY_PREFIX}${sessionId}`, name.trim())
       }
 
-      // Clear any existing kick record so player isn't immediately re-kicked
       try {
         const kickKey = `${sessionId}:kicks`
         const { data: kickData } = await supabase
@@ -150,7 +143,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           })
         }
       } catch {
-        // Best effort — don't block join if this fails
+        // Best effort
       }
 
       setStatus('success')
@@ -176,7 +169,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     setChatChannel('__lobby__')
   }
 
-  // Check if player was kicked — two methods for reliability
+  // Check if player was kicked
   useEffect(() => {
     if (status !== 'success') return
 
@@ -193,7 +186,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     }
 
     const checkKicked = async () => {
-      // Method 1: Check the kicks record in session_teams
       try {
         const { data } = await supabase
           .from('session_teams')
@@ -209,10 +201,9 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           }
         }
       } catch {
-        // Query failed, try method 2
+        // try method 2
       }
 
-      // Method 2: Check if player record still exists in live_players
       try {
         const { data } = await supabase
           .from('live_players')
@@ -225,13 +216,12 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           handleKick()
         }
       } catch {
-        // Query failed, will retry on next poll
+        // retry next poll
       }
     }
 
     checkKicked()
     const poll = setInterval(checkKicked, 2000)
-
     return () => clearInterval(poll)
   }, [status, sessionId, name])
 
@@ -272,7 +262,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           })
         }
       } catch {
-        // Invalid JSON, skip
+        // Invalid JSON
       }
     }
 
@@ -281,97 +271,167 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     return () => clearInterval(poll)
   }, [status, sessionId, name])
 
-  // Success / waiting / teams view
-  if (status === 'success') {
-    return (
-      <div className="min-h-screen bg-kazan flex items-start justify-center p-4 pt-10">
-        <BackgroundWidgets />
-        <div className="bg-white rounded-2xl shadow-airbnb-lg p-8 max-w-md w-full text-center animate-fade-in">
-          {teamName ? (
-            <>
-              <div className="text-4xl mb-3">&#127942;</div>
-              <h1 className="text-xl font-bold text-hackberry mb-1">You're on</h1>
-              <p className="text-3xl font-bold text-rausch mb-5">{teamName}</p>
+  // ── TEAMS ASSIGNED — full-screen app layout ──
+  if (status === 'success' && teamName) {
+    const teamEntries = Object.entries(allTeams).sort(([a], [b]) => {
+      if (a === teamName) return -1
+      if (b === teamName) return 1
+      return a.localeCompare(b)
+    })
 
-              <div className="text-left space-y-3 mt-4 border-t border-black/[0.06] pt-5">
-                {Object.entries(allTeams)
-                  .sort(([a], [b]) => {
-                    if (a === teamName) return -1
-                    if (b === teamName) return 1
-                    return a.localeCompare(b)
-                  })
-                  .map(([team, members]) => (
-                    <div
-                      key={team}
-                      className={`rounded-xl p-3.5 ${
-                        team === teamName
-                          ? 'bg-rausch/5 border border-rausch/15'
-                          : 'bg-kazan'
-                      }`}
-                    >
-                      <p className={`text-sm font-bold mb-2 ${
-                        team === teamName ? 'text-rausch' : 'text-hackberry'
-                      }`}>
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col max-w-lg mx-auto">
+        {/* ── Top bar ── */}
+        <div className="px-4 pt-5 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rausch to-[#D70466] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {teamName.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-white/50 text-[11px] font-medium uppercase tracking-wider">Your team</p>
+              <p className="text-white font-bold text-[17px] leading-tight truncate">{teamName}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEdit}
+              className="text-white/40 hover:text-white/70 transition-colors p-2"
+              title="Edit name or skill"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleLeave}
+              className="text-white/40 hover:text-rausch transition-colors p-2"
+              title="Leave session"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Tab bar ── */}
+        <div className="px-4 flex gap-1 mb-1">
+          <button
+            onClick={() => setActiveTab('teams')}
+            className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
+              activeTab === 'teams'
+                ? 'bg-white/10 text-white'
+                : 'text-white/40 hover:text-white/60'
+            }`}
+          >
+            Teams
+          </button>
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
+              activeTab === 'chat'
+                ? 'bg-white/10 text-white'
+                : 'text-white/40 hover:text-white/60'
+            }`}
+          >
+            Chat
+          </button>
+        </div>
+
+        {/* ── Content area ── */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {activeTab === 'teams' ? (
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
+              {teamEntries.map(([team, members]) => {
+                const isMyTeam = team === teamName
+                return (
+                  <div
+                    key={team}
+                    className={`rounded-xl p-3.5 transition-all ${
+                      isMyTeam
+                        ? 'bg-gradient-to-br from-rausch/20 to-[#D70466]/10 border border-rausch/20'
+                        : 'bg-white/[0.05] border border-white/[0.06]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div
+                        className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold ${
+                          isMyTeam
+                            ? 'bg-rausch text-white'
+                            : 'bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {team.charAt(0)}
+                      </div>
+                      <p className={`text-[13px] font-bold ${isMyTeam ? 'text-white' : 'text-white/70'}`}>
                         {team}
-                        {team === teamName && <span className="text-xs font-normal ml-1 text-rausch/60">(your team)</span>}
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {members.map(m => (
+                      {isMyTeam && (
+                        <span className="text-[10px] font-medium text-rausch/80 bg-rausch/10 px-1.5 py-0.5 rounded-full ml-auto">
+                          YOU
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {members.map(m => {
+                        const isMe = m.toLowerCase() === name.trim().toLowerCase()
+                        return (
                           <span
                             key={m}
-                            className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                              m.toLowerCase() === name.trim().toLowerCase()
+                            className={`text-[12px] px-2.5 py-1 rounded-lg font-medium ${
+                              isMe
                                 ? 'bg-rausch text-white'
-                                : 'bg-white text-hof border border-black/[0.08]'
+                                : isMyTeam
+                                  ? 'bg-white/10 text-white/80'
+                                  : 'bg-white/[0.06] text-white/50'
                             }`}
                           >
                             {m}
                           </span>
-                        ))}
-                      </div>
+                        )
+                      })}
                     </div>
-                  ))}
-              </div>
-              <div className="mt-6 flex gap-2">
-                <button
-                  onClick={handleEdit}
-                  className="flex-1 py-2.5 rounded-lg border border-hackberry/20 text-hackberry text-sm font-semibold hover:bg-kazan transition-colors"
-                >
-                  Edit name or skill
-                </button>
-                <button
-                  onClick={handleLeave}
-                  className="py-2.5 px-4 rounded-lg border border-black/[0.08] text-foggy text-sm font-semibold hover:bg-kazan transition-colors"
-                >
-                  Leave
-                </button>
-              </div>
+                  </div>
+                )
+              })}
 
-              {/* Channel tabs */}
-              <div className="mt-5 flex gap-2">
+              {/* Voice bar at bottom of teams view */}
+              <div className="pt-1">
+                <VoiceBar
+                  sessionId={sessionId}
+                  channel={chatChannel}
+                  playerName={name.trim()}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Channel switcher */}
+              <div className="px-4 py-2 flex gap-1.5">
                 <button
                   onClick={() => setChatChannel('__lobby__')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
                     chatChannel === '__lobby__'
-                      ? 'bg-rausch text-white'
-                      : 'bg-kazan text-hof hover:bg-kazan-dark'
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/40 hover:text-white/60 hover:bg-white/5'
                   }`}
                 >
-                  Lobby
+                  # Lobby
                 </button>
                 <button
                   onClick={() => setChatChannel(teamName)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
                     chatChannel === teamName
-                      ? 'bg-rausch text-white'
-                      : 'bg-kazan text-hof hover:bg-kazan-dark'
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/40 hover:text-white/60 hover:bg-white/5'
                   }`}
                 >
-                  {teamName}
+                  # {teamName}
                 </button>
               </div>
 
-              <div className="mt-3">
+              {/* Voice bar */}
+              <div className="px-4 pb-2">
                 <VoiceBar
                   sessionId={sessionId}
                   channel={chatChannel}
@@ -379,7 +439,8 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
                 />
               </div>
 
-              <div className="mt-3">
+              {/* Chat fills remaining space */}
+              <div className="flex-1 min-h-0">
                 <TeamChat
                   sessionId={sessionId}
                   channel={chatChannel}
@@ -387,62 +448,74 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
                   playerName={name.trim()}
                 />
               </div>
-            </>
-          ) : (
-            <>
-              <div className="w-16 h-16 bg-babu/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-babu" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-hackberry mb-2">You're In!</h1>
-              <p className="text-hof mb-1">
-                <span className="font-bold text-hackberry">{name}</span> &middot; Skill: {skill}
-              </p>
-              <p className="text-foggy text-sm mb-5">
-                Waiting for teams to be assigned...
-              </p>
-              <div className="flex justify-center mb-5">
-                <div className="w-6 h-6 border-2 border-rausch border-t-transparent rounded-full animate-spin" />
-              </div>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={handleEdit}
-                  className="text-sm text-rausch hover:text-rausch-dark font-semibold underline transition-colors"
-                >
-                  Edit name or skill
-                </button>
-                <span className="text-foggy">|</span>
-                <button
-                  onClick={handleLeave}
-                  className="text-sm text-foggy hover:text-hackberry font-semibold underline transition-colors"
-                >
-                  Leave
-                </button>
-              </div>
-
-              {/* Voice + lobby chat while waiting for teams */}
-              <div className="mt-5 text-left space-y-3">
-                <VoiceBar
-                  sessionId={sessionId}
-                  channel="__lobby__"
-                  playerName={name.trim()}
-                />
-                <TeamChat
-                  sessionId={sessionId}
-                  channel="__lobby__"
-                  channelLabel="Lobby"
-                  playerName={name.trim()}
-                />
-              </div>
-            </>
+            </div>
           )}
         </div>
       </div>
     )
   }
 
-  // Kicked screen — player was removed by host
+  // ── WAITING FOR TEAMS ──
+  if (status === 'success') {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col max-w-lg mx-auto">
+        {/* Top bar */}
+        <div className="px-4 pt-6 pb-4 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-babu/20 flex items-center justify-center mx-auto mb-3">
+            <svg className="w-7 h-7 text-babu" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-white mb-1">You're In!</h1>
+          <p className="text-white/50 text-sm">
+            <span className="text-white/80 font-semibold">{name}</span> &middot; Skill {skill}
+          </p>
+        </div>
+
+        {/* Spinner + waiting */}
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="w-6 h-6 border-2 border-rausch border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/30 text-[13px]">Waiting for the host to assign teams...</p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-center gap-4 pb-4">
+          <button
+            onClick={handleEdit}
+            className="text-sm text-white/40 hover:text-white/70 font-medium transition-colors"
+          >
+            Edit
+          </button>
+          <span className="text-white/15">|</span>
+          <button
+            onClick={handleLeave}
+            className="text-sm text-white/40 hover:text-rausch font-medium transition-colors"
+          >
+            Leave
+          </button>
+        </div>
+
+        {/* Lobby voice + chat while waiting */}
+        <div className="flex-1 flex flex-col min-h-0 px-4 pb-2 space-y-2">
+          <VoiceBar
+            sessionId={sessionId}
+            channel="__lobby__"
+            playerName={name.trim()}
+          />
+          <div className="flex-1 min-h-0">
+            <TeamChat
+              sessionId={sessionId}
+              channel="__lobby__"
+              channelLabel="Lobby"
+              playerName={name.trim()}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── KICKED ──
   if (status === 'kicked') {
     return (
       <div className="min-h-screen bg-kazan flex items-center justify-center p-4">
@@ -472,7 +545,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     )
   }
 
-  // Join / edit form
+  // ── JOIN / EDIT FORM ──
   const isEditing = status === 'editing'
 
   return (

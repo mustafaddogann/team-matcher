@@ -24,16 +24,16 @@ export default function VoiceBar({ sessionId, channel, playerName }: VoiceBarPro
   if (!enabled) return null
 
   return (
-    <div className="rounded-xl border border-black/[0.06] p-3 bg-kazan">
+    <div className="rounded-xl border border-white/[0.06] p-3 bg-white/[0.05]">
       {error && (
-        <p className="text-xs text-rausch mb-2">{error}</p>
+        <p className="text-xs text-rausch/80 mb-2">{error}</p>
       )}
 
       {!isConnected ? (
         <button
           onClick={joinVoice}
           disabled={isConnecting}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-babu text-white text-sm font-semibold hover:bg-babu/90 transition-colors disabled:opacity-50 mx-auto"
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-babu/80 text-white text-sm font-semibold hover:bg-babu transition-colors disabled:opacity-50 mx-auto"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m-4 0h8m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -49,7 +49,7 @@ export default function VoiceBar({ sessionId, channel, playerName }: VoiceBarPro
               className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
                 p.isSpeaking
                   ? 'bg-babu text-white ring-2 ring-babu/30'
-                  : 'bg-white text-hof border border-black/[0.08]'
+                  : 'bg-white/10 text-white/70 border border-white/[0.08]'
               }`}
             >
               {p.identity}
