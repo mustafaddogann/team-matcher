@@ -144,18 +144,29 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         setOriginalName(newName)
         localStorage.setItem(`${JOINED_KEY_PREFIX}${sessionId}`, newName)
       } else {
-        if (await isNameTaken(name.trim())) {
-          setErrorMsg('That name is already taken. Try a different one.')
-          setStatus('error')
-          return
-        }
+        // Check if a record with this name already exists (reconnecting player)
+        const { data: existing } = await supabase
+          .from('live_players')
+          .select('id, skill')
+          .eq('session_id', sessionId)
+          .eq('name', name.trim())
+          .limit(1)
 
-        const { error } = await supabase.from('live_players').insert({
-          session_id: sessionId,
-          name: name.trim(),
-          skill: skill,
-        })
-        if (error) throw error
+        if (existing && existing.length > 0) {
+          // Reclaim: update skill and resume the session
+          await supabase
+            .from('live_players')
+            .update({ skill })
+            .eq('session_id', sessionId)
+            .eq('name', name.trim())
+        } else {
+          const { error } = await supabase.from('live_players').insert({
+            session_id: sessionId,
+            name: name.trim(),
+            skill: skill,
+          })
+          if (error) throw error
+        }
 
         setOriginalName(name.trim())
         localStorage.setItem(`${JOINED_KEY_PREFIX}${sessionId}`, name.trim())
