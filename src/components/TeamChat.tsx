@@ -103,62 +103,61 @@ export default function TeamChat({
           readOnly ? 'max-h-48' : 'flex-1 min-h-0'
         }`}
       >
-        {/* Spacer pushes messages to bottom when few */}
-        <div className="flex-1" />
+        <div className="dc-messages-inner-wrap">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <p className="dc-empty-subtitle text-[13px]">
+                No messages yet in #{channelLabel}
+              </p>
+            </div>
+          ) : (
+            <div className="dc-messages-inner pb-2">
+              {messages.map((msg, idx) => {
+                const first = isFirstInGroup(idx)
+                const color = nameColor(msg.sender_name)
 
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <p className="dc-empty-subtitle text-[13px]">
-              No messages yet in #{channelLabel}
-            </p>
-          </div>
-        ) : (
-          <div className="dc-messages-inner">
-            {messages.map((msg, idx) => {
-              const first = isFirstInGroup(idx)
-              const color = nameColor(msg.sender_name)
-
-              return (
-                <div key={msg.id}>
-                  {/* Date divider */}
-                  {shouldShowDate(idx) && (
-                    <div className="dc-divider flex items-center my-3">
-                      <div className="dc-divider-line flex-1 h-px" />
-                      <span className="dc-divider-text px-2 text-[10px] font-semibold">
-                        {getDateLabel(msg.sent_at)}
-                      </span>
-                      <div className="dc-divider-line flex-1 h-px" />
-                    </div>
-                  )}
-
-                  <div className={`dc-msg group px-2 py-0.5 rounded ${first ? 'mt-2' : ''}`}>
-                    {first && (
-                      <div className="flex items-baseline gap-2 mb-0.5">
-                        <span className="text-[13px] font-semibold" style={{ color }}>
-                          {msg.sender_name}
+                return (
+                  <div key={msg.id}>
+                    {/* Date divider */}
+                    {shouldShowDate(idx) && (
+                      <div className="dc-divider flex items-center my-3">
+                        <div className="dc-divider-line flex-1 h-px" />
+                        <span className="dc-divider-text px-2 text-[10px] font-semibold">
+                          {getDateLabel(msg.sent_at)}
                         </span>
-                        <span className="dc-timestamp text-[10px]">
-                          {formatTime(msg.sent_at)}
-                        </span>
+                        <div className="dc-divider-line flex-1 h-px" />
                       </div>
                     )}
 
-                    <div className="flex items-baseline gap-2">
-                      {!first && (
-                        <span className="dc-hover-time text-[10px] hidden group-hover:inline flex-shrink-0 w-10 text-right">
-                          {formatTime(msg.sent_at)}
-                        </span>
+                    <div className={`dc-msg group px-2 py-0.5 rounded ${first ? 'mt-2' : ''}`}>
+                      {first && (
+                        <div className="flex items-baseline gap-2 mb-0.5">
+                          <span className="text-[13px] font-semibold" style={{ color }}>
+                            {msg.sender_name}
+                          </span>
+                          <span className="dc-timestamp text-[10px]">
+                            {formatTime(msg.sent_at)}
+                          </span>
+                        </div>
                       )}
-                      <p className="dc-body text-[14.5px] leading-[1.4]" style={{ wordBreak: 'break-word' }}>
-                        {msg.body}
-                      </p>
+
+                      <div className="flex items-baseline gap-2">
+                        {!first && (
+                          <span className="dc-hover-time text-[10px] hidden group-hover:inline flex-shrink-0 w-10 text-right">
+                            {formatTime(msg.sent_at)}
+                          </span>
+                        )}
+                        <p className="dc-body text-[14.5px] leading-[1.4]" style={{ wordBreak: 'break-word' }}>
+                          {msg.body}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Quick messages bar ── */}
