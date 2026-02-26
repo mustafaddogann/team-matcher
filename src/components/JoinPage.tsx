@@ -346,7 +346,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     })
 
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex flex-col max-w-lg mx-auto">
+      <div className="bg-[#1a1a2e] flex flex-col max-w-lg mx-auto" style={{ height: '100dvh' }}>
         {/* ── Top bar ── */}
         <div className="px-4 pt-5 pb-3 flex items-center justify-between">
           <div className="min-w-0">
@@ -466,7 +466,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 animate-slide-up">
               {/* Channel switcher + voice — compact single row */}
               <div className="px-4 py-1.5 flex items-center gap-1.5">
                 <button
@@ -517,7 +517,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   // ── WAITING FOR TEAMS ──
   if (status === 'success') {
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex flex-col max-w-lg mx-auto">
+      <div className="bg-[#1a1a2e] flex flex-col max-w-lg mx-auto" style={{ height: '100dvh' }}>
         {/* Top bar */}
         <div className="px-4 pt-6 pb-4 text-center">
           <div className="w-14 h-14 rounded-2xl bg-babu/20 flex items-center justify-center mx-auto mb-3">

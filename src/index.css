@@ -137,6 +137,13 @@
 
 .dc-messages {
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.dc-messages-inner {
+  flex-shrink: 0;
 }
 
 .dc-messages::-webkit-scrollbar-track {
