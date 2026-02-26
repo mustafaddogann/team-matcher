@@ -620,17 +620,33 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     <div className="min-h-screen bg-kazan flex items-center justify-center p-4">
       <BackgroundWidgets />
       <div className="bg-white rounded-2xl shadow-airbnb-lg p-8 max-w-sm w-full animate-fade-in">
-        <h1 className="text-2xl font-bold text-hackberry mb-1">
-          {isEditing ? 'Update Info' : 'Join Session'}
-        </h1>
-        <p className="text-sm text-foggy mb-6">
-          Code: <span className="font-mono font-bold text-lg text-hackberry tracking-wide">{sessionId}</span>
-        </p>
+        {/* Session badge */}
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rausch to-[#D70466] flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-hackberry leading-tight truncate">
+              {isEditing ? 'Update Info' : sessionId}
+            </h1>
+            <p className="text-xs text-foggy">
+              {isEditing ? 'Edit your details below' : 'Team matching session'}
+            </p>
+          </div>
+        </div>
+
+        {!isEditing && (
+          <p className="text-sm text-hof mb-5 leading-relaxed">
+            Enter your nickname and rate your skill level so the host can build balanced teams.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-semibold text-hackberry mb-1.5">
-              Your Name
+              Nickname
             </label>
             <input
               type="text"
@@ -638,15 +654,16 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
               onChange={e => { setName(e.target.value); if (status === 'error') setStatus('idle') }}
               required
               autoFocus
-              placeholder="Enter your name"
+              placeholder="What should we call you?"
               className="input-field text-lg py-3 w-full"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-hackberry mb-2">
+            <label className="block text-sm font-semibold text-hackberry mb-1">
               Skill Level
             </label>
+            <p className="text-xs text-foggy mb-2.5">1 = beginner, 10 = expert</p>
             <div className="flex gap-1.5 justify-between">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                 <button
@@ -674,7 +691,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
             disabled={!name.trim() || status === 'submitting'}
             className="btn-generate w-full text-base py-3.5"
           >
-            {status === 'submitting' ? 'Saving...' : isEditing ? 'Save Changes' : 'Join'}
+            {status === 'submitting' ? 'Saving...' : isEditing ? 'Save Changes' : 'Join Game'}
           </button>
 
           {isEditing && (
