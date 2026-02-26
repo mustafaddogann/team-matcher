@@ -47,7 +47,16 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     if (!supabase) return
 
     const checkSession = async () => {
-      // A session is valid if it has any live_players or session_teams entries
+      // Check the :active marker (written when host starts the session)
+      const { data: active } = await supabase
+        .from('session_teams')
+        .select('session_id')
+        .eq('session_id', `${sessionId}:active`)
+        .limit(1)
+
+      if (active && active.length > 0) return // session is active
+
+      // Also check for live_players or published teams
       const { data: players } = await supabase
         .from('live_players')
         .select('id')
@@ -65,7 +74,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       if (teams && teams.length > 0) return // session has published teams
 
       // No records at all — session doesn't exist or was deleted
-      // Only mark expired if user hasn't already joined (savedName would mean they were in it)
       if (!savedName) {
         setStatus('expired')
       }

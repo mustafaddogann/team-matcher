@@ -167,6 +167,16 @@ export function useLiveSession(activeSessionName: string | null = null) {
     pulledIdsRef.current = new Set()
     localStorage.setItem(`${LIVE_KEY_PREFIX}${activeSessionName}`, 'true')
     localStorage.removeItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
+
+    // Write a marker so the join page knows this session exists
+    const admin = getSupabaseAdmin()
+    if (admin) {
+      admin.from('session_teams').upsert({
+        session_id: `${activeSessionName}:active`,
+        teams_json: JSON.stringify({ active: true }),
+        published_at: new Date().toISOString(),
+      }).then(() => {})
+    }
   }, [activeSessionName])
 
   const stopSession = useCallback(async () => {
@@ -187,6 +197,7 @@ export function useLiveSession(activeSessionName: string | null = null) {
           admin.from('live_players').delete().eq('session_id', activeSessionName),
           admin.from('session_teams').delete().eq('session_id', activeSessionName),
           admin.from('session_teams').delete().eq('session_id', `${activeSessionName}:kicks`),
+          admin.from('session_teams').delete().eq('session_id', `${activeSessionName}:active`),
         ])
       }
     }
