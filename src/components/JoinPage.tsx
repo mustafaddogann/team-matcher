@@ -7,7 +7,7 @@ interface JoinPageProps {
   sessionId: string
 }
 
-type Status = 'idle' | 'submitting' | 'success' | 'error' | 'editing' | 'kicked'
+type Status = 'idle' | 'submitting' | 'success' | 'error' | 'editing' | 'kicked' | 'expired'
 type Tab = 'teams' | 'chat'
 
 const JOINED_KEY_PREFIX = 'tm-joined-'
@@ -40,6 +40,39 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   const [originalName, setOriginalName] = useState(savedName || '')
   const [activeTab, setActiveTab] = useState<Tab>('teams')
   const kickMissCount = useRef(0)
+
+  // Check if session exists on mount
+  useEffect(() => {
+    const supabase = getSupabase()
+    if (!supabase) return
+
+    const checkSession = async () => {
+      // A session is valid if it has any live_players or session_teams entries
+      const { data: players } = await supabase
+        .from('live_players')
+        .select('id')
+        .eq('session_id', sessionId)
+        .limit(1)
+
+      if (players && players.length > 0) return // session exists
+
+      const { data: teams } = await supabase
+        .from('session_teams')
+        .select('session_id')
+        .eq('session_id', sessionId)
+        .limit(1)
+
+      if (teams && teams.length > 0) return // session has published teams
+
+      // No records at all — session doesn't exist or was deleted
+      // Only mark expired if user hasn't already joined (savedName would mean they were in it)
+      if (!savedName) {
+        setStatus('expired')
+      }
+    }
+
+    checkSession()
+  }, [sessionId, savedName])
 
   // Persist team state to localStorage
   useEffect(() => {
@@ -665,6 +698,31 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
               playerName={name.trim()}
             />
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── SESSION EXPIRED / NOT FOUND ──
+  if (status === 'expired') {
+    return (
+      <div className="tm-app-bg min-h-screen flex items-center justify-center p-4">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-[30%] -right-[10%] w-[50%] h-[50%] rounded-full bg-white/[0.02] blur-[100px]" />
+        </div>
+        <div className="relative z-10 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-8 max-w-sm w-full text-center animate-fade-in">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.06] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-extrabold text-white mb-2">Session Not Found</h1>
+          <p className="text-white/35 mb-2 text-[14px]">
+            This session doesn't exist or has ended.
+          </p>
+          <p className="text-white/20 text-[12px]">
+            Ask the host for a new link to join.
+          </p>
         </div>
       </div>
     )
