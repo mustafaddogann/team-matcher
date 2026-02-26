@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '../lib/supabase'
 import BackgroundWidgets from './BackgroundWidgets'
 import TeamChat from './TeamChat'
@@ -12,6 +12,16 @@ type Status = 'idle' | 'submitting' | 'success' | 'error' | 'editing' | 'kicked'
 type Tab = 'teams' | 'chat'
 
 const JOINED_KEY_PREFIX = 'tm-joined-'
+const TEAM_KEY_PREFIX = 'tm-team-'
+const TEAMS_KEY_PREFIX = 'tm-teams-data-'
+const CHANNEL_KEY_PREFIX = 'tm-channel-'
+
+function loadJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch { return fallback }
+}
 
 export default function JoinPage({ sessionId }: JoinPageProps) {
   const savedName = localStorage.getItem(`${JOINED_KEY_PREFIX}${sessionId}`)
@@ -19,11 +29,37 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   const [skill, setSkill] = useState(5)
   const [status, setStatus] = useState<Status>(savedName ? 'success' : 'idle')
   const [errorMsg, setErrorMsg] = useState('')
-  const [teamName, setTeamName] = useState<string | null>(null)
-  const [allTeams, setAllTeams] = useState<Record<string, string[]>>({})
-  const [chatChannel, setChatChannel] = useState<string>('__lobby__')
+  const [teamName, setTeamName] = useState<string | null>(
+    () => localStorage.getItem(`${TEAM_KEY_PREFIX}${sessionId}`),
+  )
+  const [allTeams, setAllTeams] = useState<Record<string, string[]>>(
+    () => loadJson(`${TEAMS_KEY_PREFIX}${sessionId}`, {}),
+  )
+  const [chatChannel, setChatChannel] = useState<string>(
+    () => localStorage.getItem(`${CHANNEL_KEY_PREFIX}${sessionId}`) || '__lobby__',
+  )
   const [originalName, setOriginalName] = useState(savedName || '')
   const [activeTab, setActiveTab] = useState<Tab>('teams')
+  const kickMissCount = useRef(0)
+
+  // Persist team state to localStorage
+  useEffect(() => {
+    if (teamName) {
+      localStorage.setItem(`${TEAM_KEY_PREFIX}${sessionId}`, teamName)
+    } else {
+      localStorage.removeItem(`${TEAM_KEY_PREFIX}${sessionId}`)
+    }
+  }, [teamName, sessionId])
+
+  useEffect(() => {
+    if (Object.keys(allTeams).length > 0) {
+      localStorage.setItem(`${TEAMS_KEY_PREFIX}${sessionId}`, JSON.stringify(allTeams))
+    }
+  }, [allTeams, sessionId])
+
+  useEffect(() => {
+    localStorage.setItem(`${CHANNEL_KEY_PREFIX}${sessionId}`, chatChannel)
+  }, [chatChannel, sessionId])
 
   // Load current skill from DB on mount if already joined
   useEffect(() => {
@@ -160,6 +196,9 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
 
   const handleLeave = () => {
     localStorage.removeItem(`${JOINED_KEY_PREFIX}${sessionId}`)
+    localStorage.removeItem(`${TEAM_KEY_PREFIX}${sessionId}`)
+    localStorage.removeItem(`${TEAMS_KEY_PREFIX}${sessionId}`)
+    localStorage.removeItem(`${CHANNEL_KEY_PREFIX}${sessionId}`)
     setStatus('idle')
     setName('')
     setSkill(5)
@@ -176,8 +215,13 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     const supabase = getSupabase()
     if (!supabase) return
 
+    kickMissCount.current = 0
+
     const handleKick = () => {
       localStorage.removeItem(`${JOINED_KEY_PREFIX}${sessionId}`)
+      localStorage.removeItem(`${TEAM_KEY_PREFIX}${sessionId}`)
+      localStorage.removeItem(`${TEAMS_KEY_PREFIX}${sessionId}`)
+      localStorage.removeItem(`${CHANNEL_KEY_PREFIX}${sessionId}`)
       setStatus('kicked')
       setOriginalName('')
       setTeamName(null)
@@ -186,6 +230,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     }
 
     const checkKicked = async () => {
+      // Method 1: explicit kick list — immediate
       try {
         const { data } = await supabase
           .from('session_teams')
@@ -201,9 +246,11 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           }
         }
       } catch {
-        // try method 2
+        // no kick record, continue
       }
 
+      // Method 2: check live_players — require 3 consecutive misses
+      // to avoid false kicks from transient network issues or cold starts
       try {
         const { data } = await supabase
           .from('live_players')
@@ -213,16 +260,24 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           .limit(1)
 
         if (!data || data.length === 0) {
-          handleKick()
+          kickMissCount.current += 1
+          if (kickMissCount.current >= 3) {
+            handleKick()
+          }
+        } else {
+          kickMissCount.current = 0
         }
       } catch {
-        // retry next poll
+        // network error — don't count as a miss
       }
     }
 
-    checkKicked()
+    // Delay first check to let Supabase connection settle after refresh
+    const initialDelay = setTimeout(() => {
+      checkKicked()
+    }, 3000)
     const poll = setInterval(checkKicked, 2000)
-    return () => clearInterval(poll)
+    return () => { clearTimeout(initialDelay); clearInterval(poll) }
   }, [status, sessionId, name])
 
   // Poll for published team results
