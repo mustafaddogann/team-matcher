@@ -9,6 +9,21 @@ interface TeamChatProps {
   readOnly?: boolean
 }
 
+// Deterministic color from username (Discord-style role colors)
+const NAME_COLORS = [
+  '#f23f43', '#fe7334', '#f0b232', '#2dc770',
+  '#45ddc0', '#39a4f4', '#8a8ff8', '#e985e3',
+]
+function nameColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return NAME_COLORS[Math.abs(hash) % NAME_COLORS.length]
+}
+
+function avatarInitial(name: string): string {
+  return name.charAt(0).toUpperCase()
+}
+
 export default function TeamChat({
   sessionId,
   channel,
@@ -23,7 +38,7 @@ export default function TeamChat({
   )
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
-  const [showEmojiBar, setShowEmojiBar] = useState(false)
+  const [showQuickBar, setShowQuickBar] = useState(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -47,26 +62,19 @@ export default function TeamChat({
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Group consecutive messages from the same sender
   const isFirstInGroup = (idx: number) => {
     if (idx === 0) return true
     return messages[idx].sender_name !== messages[idx - 1].sender_name
   }
 
-  const isLastInGroup = (idx: number) => {
-    if (idx === messages.length - 1) return true
-    return messages[idx].sender_name !== messages[idx + 1].sender_name
-  }
-
-  // Date separator logic
   const getDateLabel = (iso: string) => {
     const d = new Date(iso)
     const now = new Date()
     const diff = now.getTime() - d.getTime()
     const oneDay = 86400000
-    if (diff < oneDay && d.getDate() === now.getDate()) return 'TODAY'
-    if (diff < oneDay * 2 && d.getDate() === now.getDate() - 1) return 'YESTERDAY'
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()
+    if (diff < oneDay && d.getDate() === now.getDate()) return 'Today'
+    if (diff < oneDay * 2 && d.getDate() === now.getDate() - 1) return 'Yesterday'
+    return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })
   }
 
   const shouldShowDate = (idx: number) => {
@@ -76,136 +84,98 @@ export default function TeamChat({
     return prev.toDateString() !== curr.toDateString()
   }
 
-  const quickEmojis = ['GG', 'Nice!', "Let's go!", 'Ready', 'One sec', 'lol', '?']
+  const quickMessages = ['GG', 'Nice!', "Let's go!", 'Ready', 'One sec', 'lol', '?']
 
   return (
-    <div className="wa-chat w-full overflow-hidden animate-fade-in flex flex-col" style={{ borderRadius: '12px' }}>
-      {/* ── Header bar (WhatsApp teal) ── */}
-      <div className="wa-header px-4 py-2.5 flex items-center gap-3">
-        {/* Group avatar */}
-        <div className="wa-avatar w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-          {channelLabel.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white text-[15px] font-medium truncate leading-tight">
-            {channelLabel}
-          </p>
-          <p className="text-white/60 text-[11px] leading-tight mt-0.5">
-            {messages.length} message{messages.length !== 1 && 's'}
-          </p>
-        </div>
-        {!readOnly && (
-          <button
-            onClick={() => setShowEmojiBar(v => !v)}
-            className="text-white/70 hover:text-white transition-colors p-1"
-            title="Quick messages"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8zm3.5-9c.828 0 1.5-.672 1.5-1.5S16.328 8 15.5 8 14 8.672 14 9.5s.672 1.5 1.5 1.5zm-7 0c.828 0 1.5-.672 1.5-1.5S9.328 8 8.5 8 7 8.672 7 9.5 7.672 11 8.5 11zm3.5 6.5c2.33 0 4.32-1.45 5.116-3.5H6.884c.796 2.05 2.786 3.5 5.116 3.5z"/>
-            </svg>
-          </button>
-        )}
+    <div className="dc-chat w-full overflow-hidden animate-fade-in flex flex-col rounded-lg">
+      {/* ── Header ── */}
+      <div className="dc-header px-4 py-2.5 flex items-center gap-2">
+        <svg className="w-5 h-5 dc-hash-icon flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5.88657 21C5.57547 21 5.3399 20.7189 5.39427 20.4126L6.00001 17H2.59511C2.28449 17 2.04905 16.7198 2.10259 16.4138L2.27759 15.4138C2.31946 15.1746 2.52722 15 2.77011 15H6.35001L7.41001 9H4.00511C3.69449 9 3.45905 8.71977 3.51259 8.41381L3.68759 7.41381C3.72946 7.17456 3.93722 7 4.18011 7H7.76001L8.39677 3.41262C8.43914 3.17391 8.64664 3 8.88907 3H9.87344C10.1845 3 10.4201 3.28107 10.3657 3.58738L9.76001 7H15.76L16.3968 3.41262C16.4391 3.17391 16.6466 3 16.8891 3H17.8734C18.1845 3 18.4201 3.28107 18.3657 3.58738L17.76 7H21.1649C21.4755 7 21.711 7.28023 21.6574 7.58619L21.4824 8.58619C21.4406 8.82544 21.2328 9 20.9899 9H17.41L16.35 15H19.7549C20.0655 15 20.301 15.2802 20.2474 15.5862L20.0724 16.5862C20.0306 16.8254 19.8228 17 19.5799 17H16L15.3632 20.5874C15.3209 20.8261 15.1134 21 14.8709 21H13.8866C13.5755 21 13.3399 20.7189 13.3943 20.4126L14 17H8.00001L7.36325 20.5874C7.32088 20.8261 7.11337 21 6.87094 21H5.88657ZM9.41045 9L8.35045 15H14.3504L15.4104 9H9.41045Z" />
+        </svg>
+        <span className="dc-channel-name text-[15px] font-semibold truncate">
+          {channelLabel}
+        </span>
       </div>
 
-      {/* ── Message area with WhatsApp wallpaper ── */}
+      {/* ── Messages ── */}
       <div
-        className={`wa-messages overflow-y-auto px-3 py-2 ${
-          readOnly ? 'max-h-48' : 'h-96'
+        className={`dc-messages overflow-y-auto px-4 py-2 ${
+          readOnly ? 'max-h-48' : 'h-80'
         }`}
       >
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="wa-system-pill px-4 py-1.5 rounded-lg text-center">
-              <p className="text-[12.5px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Messages are end-to-end encrypted. No one outside of this chat can read them.
-              </p>
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <div className="dc-empty-icon w-16 h-16 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
+                <path d="M5.88657 21C5.57547 21 5.3399 20.7189 5.39427 20.4126L6.00001 17H2.59511C2.28449 17 2.04905 16.7198 2.10259 16.4138L2.27759 15.4138C2.31946 15.1746 2.52722 15 2.77011 15H6.35001L7.41001 9H4.00511C3.69449 9 3.45905 8.71977 3.51259 8.41381L3.68759 7.41381C3.72946 7.17456 3.93722 7 4.18011 7H7.76001L8.39677 3.41262C8.43914 3.17391 8.64664 3 8.88907 3H9.87344C10.1845 3 10.4201 3.28107 10.3657 3.58738L9.76001 7H15.76L16.3968 3.41262C16.4391 3.17391 16.6466 3 16.8891 3H17.8734C18.1845 3 18.4201 3.28107 18.3657 3.58738L17.76 7H21.1649C21.4755 7 21.711 7.28023 21.6574 7.58619L21.4824 8.58619C21.4406 8.82544 21.2328 9 20.9899 9H17.41L16.35 15H19.7549C20.0655 15 20.301 15.2802 20.2474 15.5862L20.0724 16.5862C20.0306 16.8254 19.8228 17 19.5799 17H16L15.3632 20.5874C15.3209 20.8261 15.1134 21 14.8709 21H13.8866C13.5755 21 13.3399 20.7189 13.3943 20.4126L14 17H8.00001L7.36325 20.5874C7.32088 20.8261 7.11337 21 6.87094 21H5.88657ZM9.41045 9L8.35045 15H14.3504L15.4104 9H9.41045Z" />
+              </svg>
             </div>
+            <p className="dc-empty-title text-[17px] font-bold">
+              Welcome to #{channelLabel}!
+            </p>
+            <p className="dc-empty-subtitle text-[13px]">
+              This is the start of the #{channelLabel} channel.
+            </p>
           </div>
         )}
 
         {messages.map((msg, idx) => {
-          const isOwn = msg.sender_name.toLowerCase() === playerName.toLowerCase()
           const first = isFirstInGroup(idx)
-          const last = isLastInGroup(idx)
+          const color = nameColor(msg.sender_name)
 
           return (
             <div key={msg.id}>
-              {/* Date separator */}
+              {/* Date divider */}
               {shouldShowDate(idx) && (
-                <div className="flex justify-center my-3">
-                  <span className="wa-date-pill px-3 py-1 rounded-md text-[11px] font-medium tracking-wide">
+                <div className="dc-divider flex items-center my-4">
+                  <div className="dc-divider-line flex-1 h-px" />
+                  <span className="dc-divider-text px-2 text-[11px] font-semibold">
                     {getDateLabel(msg.sent_at)}
                   </span>
+                  <div className="dc-divider-line flex-1 h-px" />
                 </div>
               )}
 
-              <div
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${
-                  first ? 'mt-2' : 'mt-[3px]'
-                }`}
-              >
-                <div
-                  className={`wa-bubble relative max-w-[78%] px-2.5 py-1.5 ${
-                    isOwn ? 'wa-bubble-out' : 'wa-bubble-in'
-                  } ${first ? 'wa-bubble-first' : ''}`}
-                  style={{
-                    borderRadius: isOwn
-                      ? `7.5px ${first ? '0' : '7.5px'} 7.5px 7.5px`
-                      : `${first ? '0' : '7.5px'} 7.5px 7.5px 7.5px`,
-                  }}
-                >
-                  {/* Sender name (group chat style, only for others) */}
-                  {!isOwn && first && (
-                    <p className="wa-sender-name text-[12.5px] font-semibold mb-0.5 leading-tight">
-                      {msg.sender_name}
-                    </p>
-                  )}
-
-                  {/* Message body + timestamp in one line flow */}
-                  <div className="flex items-end gap-2">
-                    <p className="text-[14.2px] leading-[19px] flex-1" style={{ wordBreak: 'break-word' }}>
-                      {msg.body}
-                    </p>
-                    <span className="wa-timestamp text-[11px] leading-none flex-shrink-0 translate-y-[1px] flex items-center gap-0.5">
+              <div className={`dc-msg group flex gap-3 px-1 rounded ${first ? 'mt-3 pt-0.5' : ''}`}>
+                {/* Avatar or spacer */}
+                {first ? (
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: color }}
+                  >
+                    {avatarInitial(msg.sender_name)}
+                  </div>
+                ) : (
+                  <div className="w-10 flex-shrink-0 flex items-center justify-center">
+                    <span className="dc-hover-time text-[10px] hidden group-hover:block">
                       {formatTime(msg.sent_at)}
-                      {/* Double check marks for own messages */}
-                      {isOwn && (
-                        <svg className="w-[16px] h-[11px] ml-0.5" viewBox="0 0 16 11" fill="none">
-                          <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.175a.46.46 0 00-.313-.153.518.518 0 00-.381.122.465.465 0 00-.15.348.467.467 0 00.152.351l2.34 2.534a.455.455 0 00.33.152c.14 0 .271-.07.354-.178l6.508-8.005a.478.478 0 00.047-.58z" fill="currentColor"/>
-                          <path d="M14.757.653a.457.457 0 00-.305-.102.493.493 0 00-.38.178l-6.19 7.636-2.012-2.175a.46.46 0 00-.312-.153.518.518 0 00-.382.122.465.465 0 00-.15.348.467.467 0 00.153.351l2.34 2.534a.455.455 0 00.33.152c.139 0 .27-.07.353-.178l6.509-8.005a.478.478 0 00.046-.58z" fill="currentColor" opacity="0.7"/>
-                        </svg>
-                      )}
                     </span>
                   </div>
+                )}
 
-                  {/* WhatsApp-style tail/notch for first message in group */}
+                <div className="flex-1 min-w-0">
+                  {/* Username + timestamp */}
                   {first && (
-                    <div
-                      className={`absolute top-0 w-3 h-3 ${
-                        isOwn ? '-right-[5px]' : '-left-[5px]'
-                      }`}
-                    >
-                      <svg
-                        viewBox="0 0 8 13"
-                        width="8"
-                        height="13"
-                        className={`absolute top-0 ${isOwn ? 'right-0' : 'left-0 -scale-x-100'}`}
+                    <div className="flex items-baseline gap-2 mb-0.5">
+                      <span
+                        className="text-[14px] font-semibold hover:underline cursor-pointer"
+                        style={{ color }}
                       >
-                        <path
-                          d={isOwn
-                            ? 'M1.533 3.568L8 12.193V1H2.812C1.042 1 .474 2.156 1.533 3.568z'
-                            : 'M6.467 3.568L0 12.193V1h5.188c1.77 0 2.338 1.156 1.28 2.568z'
-                          }
-                          fill={isOwn ? '#d9fdd3' : '#ffffff'}
-                        />
-                      </svg>
+                        {msg.sender_name}
+                      </span>
+                      <span className="dc-timestamp text-[11px]">
+                        {formatTime(msg.sent_at)}
+                      </span>
                     </div>
                   )}
+
+                  {/* Message body */}
+                  <p className="dc-body text-[15px] leading-[1.375]" style={{ wordBreak: 'break-word' }}>
+                    {msg.body}
+                  </p>
                 </div>
               </div>
-
-              {/* Spacer after last message in a group */}
-              {last && <div className="h-0.5" />}
             </div>
           )
         })}
@@ -213,15 +183,15 @@ export default function TeamChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Quick emoji bar (toggleable) ── */}
-      {!readOnly && showEmojiBar && (
-        <div className="wa-emoji-bar px-3 py-2 flex gap-1.5 flex-wrap border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-          {quickEmojis.map((q) => (
+      {/* ── Quick messages bar ── */}
+      {!readOnly && showQuickBar && (
+        <div className="dc-quick-bar px-3 py-2 flex gap-1.5 flex-wrap">
+          {quickMessages.map((q) => (
             <button
               key={q}
-              onClick={() => { sendMessage(q); setShowEmojiBar(false) }}
+              onClick={() => { sendMessage(q); setShowQuickBar(false) }}
               disabled={isSending}
-              className="wa-quick-btn px-3 py-1 text-[12px] font-medium rounded-full transition-all active:scale-95 disabled:opacity-40"
+              className="dc-quick-btn px-3 py-1 text-[12px] font-medium rounded transition-all active:scale-95 disabled:opacity-40"
             >
               {q}
             </button>
@@ -229,49 +199,39 @@ export default function TeamChat({
         </div>
       )}
 
-      {/* ── Input bar ── */}
+      {/* ── Input ── */}
       {!readOnly && (
-        <div className="wa-input-bar px-2 py-2 flex items-end gap-2">
-          {/* Emoji toggle in input area */}
-          <button
-            onClick={() => setShowEmojiBar(v => !v)}
-            className="wa-input-icon p-2 flex-shrink-0"
-            title="Quick messages"
-          >
-            <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9.153 11.603c.795 0 1.44-.88 1.44-1.962s-.645-1.962-1.44-1.962c-.795 0-1.44.88-1.44 1.962s.645 1.962 1.44 1.962zm5.694 0c.795 0 1.44-.88 1.44-1.962s-.645-1.962-1.44-1.962c-.795 0-1.44.88-1.44 1.962s.645 1.962 1.44 1.962zM11.994 2c-5.517 0-9.997 4.48-9.997 10s4.48 10 9.997 10C17.52 22 22 17.52 22 12S17.52 2 11.994 2zm.006 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-3.5c-2.33 0-4.32-1.45-5.116-3.5h10.232c-.796 2.05-2.786 3.5-5.116 3.5z"/>
-            </svg>
-          </button>
-
-          {/* Text input with WhatsApp styling */}
-          <div className="wa-input-field flex-1 flex items-end rounded-3xl px-3 py-1.5">
+        <div className="dc-input-bar px-3 pb-3 pt-0">
+          <div className="dc-input-field flex items-center rounded-lg px-3">
+            <button
+              onClick={() => setShowQuickBar(v => !v)}
+              className="dc-input-icon p-1.5 rounded flex-shrink-0 mr-1"
+              title="Quick messages"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8zm3.5-9c.828 0 1.5-.672 1.5-1.5S16.328 8 15.5 8 14 8.672 14 9.5s.672 1.5 1.5 1.5zm-7 0c.828 0 1.5-.672 1.5-1.5S9.328 8 8.5 8 7 8.672 7 9.5 7.672 11 8.5 11zm3.5 6.5c2.33 0 4.32-1.45 5.116-3.5H6.884c.796 2.05 2.786 3.5 5.116 3.5z"/>
+              </svg>
+            </button>
             <input
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message"
-              className="wa-text-input flex-1 bg-transparent text-[15px] py-1 focus:outline-none"
-              style={{ lineHeight: '20px' }}
+              placeholder={`Message #${channelLabel}`}
+              className="dc-text-input flex-1 bg-transparent text-[15px] py-2.5 focus:outline-none"
             />
-          </div>
-
-          {/* Send / Mic button */}
-          <button
-            onClick={draft.trim() ? handleSend : undefined}
-            disabled={!draft.trim() || isSending}
-            className="wa-send-btn w-[42px] h-[42px] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-60"
-          >
-            {draft.trim() ? (
-              <svg className="w-5 h-5 text-white ml-[2px]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.239 1.816-13.239 1.817-.011 7.912z"/>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.238 6.002s-6.238-2.471-6.238-6.002H4.057c0 4.001 3.178 7.296 7.06 7.885v3.884h1.765v-3.884c3.882-.589 7.06-3.884 7.06-7.885h-1.705z"/>
-              </svg>
+            {draft.trim() && (
+              <button
+                onClick={handleSend}
+                disabled={isSending}
+                className="dc-send-btn p-1.5 rounded flex-shrink-0 ml-1 transition-all active:scale-90 disabled:opacity-40"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.239 1.816-13.239 1.817-.011 7.912z"/>
+                </svg>
+              </button>
             )}
-          </button>
+          </div>
         </div>
       )}
     </div>
