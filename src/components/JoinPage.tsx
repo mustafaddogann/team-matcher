@@ -345,54 +345,76 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       return a.localeCompare(b)
     })
 
+    const TEAM_COLORS = [
+      { bg: 'from-[#FF385C]/15 to-[#D70466]/8', border: 'border-[#FF385C]/25', badge: 'bg-[#FF385C]', glow: 'shadow-[0_0_30px_rgba(255,56,92,0.15)]' },
+      { bg: 'from-[#00A699]/15 to-[#00867A]/8', border: 'border-[#00A699]/25', badge: 'bg-[#00A699]', glow: 'shadow-[0_0_30px_rgba(0,166,153,0.15)]' },
+      { bg: 'from-[#6C5CE7]/15 to-[#5A4BD1]/8', border: 'border-[#6C5CE7]/25', badge: 'bg-[#6C5CE7]', glow: 'shadow-[0_0_30px_rgba(108,92,231,0.15)]' },
+      { bg: 'from-[#FC642D]/15 to-[#E8571F]/8', border: 'border-[#FC642D]/25', badge: 'bg-[#FC642D]', glow: 'shadow-[0_0_30px_rgba(252,100,45,0.15)]' },
+      { bg: 'from-[#0984E3]/15 to-[#0770C2]/8', border: 'border-[#0984E3]/25', badge: 'bg-[#0984E3]', glow: 'shadow-[0_0_30px_rgba(9,132,227,0.15)]' },
+      { bg: 'from-[#E17055]/15 to-[#D35D43]/8', border: 'border-[#E17055]/25', badge: 'bg-[#E17055]', glow: 'shadow-[0_0_30px_rgba(225,112,85,0.15)]' },
+    ]
+
     const teamsPanel = (
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 md:px-5">
-        {teamEntries.map(([team, members]) => {
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 md:px-5">
+        {teamEntries.map(([team, members], idx) => {
           const isMyTeam = team === teamName
+          const colors = TEAM_COLORS[idx % TEAM_COLORS.length]
           return (
             <div
               key={team}
-              className={`rounded-xl p-3.5 transition-all ${
+              className={`team-card-enter rounded-2xl p-4 transition-all border backdrop-blur-sm ${
                 isMyTeam
-                  ? 'bg-gradient-to-br from-rausch/20 to-[#D70466]/10 border border-rausch/20'
-                  : 'bg-white/[0.05] border border-white/[0.06]'
+                  ? `bg-gradient-to-br ${colors.bg} ${colors.border} ${colors.glow}`
+                  : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
               }`}
+              style={{ animationDelay: `${idx * 80}ms` }}
             >
-              <div className="flex items-center gap-2 mb-2.5">
+              {/* Team header */}
+              <div className="flex items-center gap-3 mb-3">
                 <div
-                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold ${
-                    isMyTeam
-                      ? 'bg-rausch text-white'
-                      : 'bg-white/10 text-white/60'
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-[14px] font-extrabold text-white ${
+                    isMyTeam ? colors.badge : 'bg-white/10'
                   }`}
                 >
-                  {team.charAt(0)}
+                  {team.charAt(0).toUpperCase()}
                 </div>
-                <p className={`text-[13px] font-bold ${isMyTeam ? 'text-white' : 'text-white/70'}`}>
-                  {team}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[14px] font-bold leading-tight truncate ${isMyTeam ? 'text-white' : 'text-white/60'}`}>
+                    {team}
+                  </p>
+                  <p className={`text-[11px] ${isMyTeam ? 'text-white/50' : 'text-white/25'}`}>
+                    {members.length} player{members.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
                 {isMyTeam && (
-                  <span className="text-[10px] font-medium text-rausch/80 bg-rausch/10 px-1.5 py-0.5 rounded-full ml-auto">
-                    YOU
+                  <span className="text-[10px] font-bold text-white tracking-wider bg-white/15 px-2.5 py-1 rounded-full uppercase">
+                    Your Team
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+
+              {/* Members */}
+              <div className="flex flex-wrap gap-2">
                 {members.map(m => {
                   const isMe = m.toLowerCase() === name.trim().toLowerCase()
                   return (
-                    <span
+                    <div
                       key={m}
-                      className={`text-[12px] px-2.5 py-1 rounded-lg font-medium ${
+                      className={`flex items-center gap-1.5 text-[12px] pl-1.5 pr-2.5 py-1 rounded-full font-medium transition-all ${
                         isMe
-                          ? 'bg-rausch text-white'
+                          ? `${colors.badge} text-white`
                           : isMyTeam
-                            ? 'bg-white/10 text-white/80'
-                            : 'bg-white/[0.06] text-white/50'
+                            ? 'bg-white/[0.08] text-white/80 border border-white/[0.06]'
+                            : 'bg-white/[0.04] text-white/40 border border-white/[0.04]'
                       }`}
                     >
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                        isMe ? 'bg-white/25' : isMyTeam ? 'bg-white/10' : 'bg-white/[0.06]'
+                      }`}>
+                        {m.charAt(0).toUpperCase()}
+                      </div>
                       {m}
-                    </span>
+                    </div>
                   )
                 })}
               </div>
@@ -400,7 +422,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           )
         })}
 
-        <div className="pt-1 md:hidden">
+        <div className="pt-2 md:hidden">
           <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
         </div>
       </div>
@@ -409,28 +431,28 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     const chatPanel = (
       <div className="flex-1 flex flex-col min-h-0">
         {/* Channel switcher + voice */}
-        <div className="px-4 py-1.5 flex items-center gap-1.5">
-          <button
-            onClick={() => setChatChannel('__lobby__')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-              chatChannel === '__lobby__'
-                ? 'bg-white/15 text-white'
-                : 'text-white/35 hover:text-white/60 hover:bg-white/5'
-            }`}
-          >
-            # Lobby
-          </button>
-          <button
-            onClick={() => setChatChannel(teamName)}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-              chatChannel === teamName
-                ? 'bg-white/15 text-white'
-                : 'text-white/35 hover:text-white/60 hover:bg-white/5'
-            }`}
-          >
-            # {teamName}
-          </button>
-          <div className="ml-auto">
+        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-white/[0.06]">
+          {[
+            { key: '__lobby__', label: 'Lobby' },
+            { key: teamName, label: teamName },
+          ].map(ch => {
+            const active = chatChannel === ch.key
+            return (
+              <button
+                key={ch.key}
+                onClick={() => setChatChannel(ch.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                  active
+                    ? 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                    : 'text-white/30 hover:text-white/55 hover:bg-white/[0.04]'
+                }`}
+              >
+                <span className={`text-[10px] ${active ? 'text-white/50' : 'text-white/20'}`}>#</span>
+                {ch.label}
+              </button>
+            )
+          })}
+          <div className="ml-auto hidden md:block">
             <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
           </div>
         </div>
@@ -447,66 +469,91 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     )
 
     return (
-      <div className="bg-[#1a1a2e] flex flex-col" style={{ height: '100dvh' }}>
+      <div className="tm-app-bg flex flex-col" style={{ height: '100dvh' }}>
+        {/* Ambient glow effects */}
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-[40%] -left-[20%] w-[60%] h-[60%] rounded-full bg-[#FF385C]/[0.03] blur-[100px]" />
+          <div className="absolute -bottom-[30%] -right-[15%] w-[50%] h-[50%] rounded-full bg-[#00A699]/[0.03] blur-[100px]" />
+        </div>
+
         {/* ── Top bar ── */}
-        <div className="px-4 md:px-6 pt-4 pb-3 flex items-center justify-between max-w-screen-xl mx-auto w-full">
-          <div className="min-w-0">
-            <p className="text-white/50 text-[11px] font-medium uppercase tracking-wider">Your team</p>
-            <p className="text-white font-bold text-[17px] md:text-xl leading-tight truncate">{teamName}</p>
+        <div className="relative z-10 px-4 md:px-8 pt-5 pb-4 flex items-center justify-between max-w-screen-xl mx-auto w-full">
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Team emblem */}
+            <div className="relative">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-[#FF385C] to-[#D70466] flex items-center justify-center text-white font-extrabold text-xl md:text-2xl shadow-lg shadow-[#FF385C]/20">
+                {teamName.charAt(0).toUpperCase()}
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-babu border-2 border-[#0f0f23] flex items-center justify-center">
+                <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-[0.15em]">Your Team</p>
+              <p className="text-white font-extrabold text-lg md:text-xl leading-tight truncate">{teamName}</p>
+              <p className="text-white/30 text-[11px] mt-0.5">
+                Playing as <span className="text-white/60 font-medium">{name}</span> &middot; Skill {skill}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1">
             <button
               onClick={handleEdit}
-              className="text-white/40 hover:text-white/70 transition-colors p-2"
+              className="text-white/25 hover:text-white/60 hover:bg-white/5 transition-all p-2.5 rounded-xl"
               title="Edit name or skill"
             >
               <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </button>
             <button
               onClick={handleLeave}
-              className="text-white/40 hover:text-rausch transition-colors p-2"
+              className="text-white/25 hover:text-rausch hover:bg-rausch/10 transition-all p-2.5 rounded-xl"
               title="Leave session"
             >
               <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
           </div>
         </div>
 
         {/* ── Mobile: tab bar ── */}
-        <div className="px-4 flex gap-1 mb-1 md:hidden">
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
-              activeTab === 'teams'
-                ? 'bg-white/10 text-white'
-                : 'text-white/40 hover:text-white/60'
-            }`}
-          >
-            Teams
-          </button>
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex-1 py-2 text-[13px] font-semibold rounded-lg transition-all ${
-              activeTab === 'chat'
-                ? 'bg-white/10 text-white'
-                : 'text-white/40 hover:text-white/60'
-            }`}
-          >
-            Chat
-          </button>
+        <div className="relative z-10 px-4 flex gap-1 mb-1 md:hidden">
+          {[
+            { key: 'teams' as Tab, label: 'Teams', icon: (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            )},
+            { key: 'chat' as Tab, label: 'Chat', icon: (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            )},
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold rounded-xl transition-all ${
+                activeTab === tab.key
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/30 hover:text-white/50'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* ── Desktop: side-by-side | Mobile: tabbed ── */}
-        <div className="flex-1 flex flex-col md:flex-row min-h-0 max-w-screen-xl mx-auto w-full">
-          {/* Desktop: always show both panels */}
-          {/* Mobile: show active tab only */}
-
+        <div className="relative z-10 flex-1 flex flex-col md:flex-row min-h-0 max-w-screen-xl mx-auto w-full">
           {/* Teams panel */}
-          <div className={`md:w-80 lg:w-96 md:flex md:flex-col md:border-r md:border-white/[0.06] md:flex-shrink-0 ${
+          <div className={`md:w-[340px] lg:w-[400px] md:flex md:flex-col md:border-r md:border-white/[0.04] md:flex-shrink-0 ${
             activeTab === 'teams' ? 'flex flex-col flex-1' : 'hidden md:flex'
           }`}>
             {teamsPanel}
@@ -514,7 +561,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
 
           {/* Chat panel */}
           <div className={`md:flex md:flex-col md:flex-1 md:min-w-0 ${
-            activeTab === 'chat' ? 'flex flex-col flex-1 animate-slide-up md:animate-none' : 'hidden md:flex'
+            activeTab === 'chat' ? 'flex flex-col flex-1' : 'hidden md:flex'
           }`}>
             {chatPanel}
           </div>
