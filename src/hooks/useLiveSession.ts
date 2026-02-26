@@ -46,6 +46,17 @@ export function useLiveSession(activeSessionName: string | null = null) {
     if (wasLive) {
       setIsActive(true)
       setRemotePlayers([])
+
+      // Ensure the :active marker exists (may be missing if session was started before this code)
+      const sb = getSupabase()
+      if (sb) {
+        sb.from('session_teams').upsert({
+          session_id: `${activeSessionName}:active`,
+          teams_json: JSON.stringify({ active: true }),
+          published_at: new Date().toISOString(),
+        }).then(() => {})
+      }
+
       try {
         const savedPulled = localStorage.getItem(`${PULLED_KEY_PREFIX}${activeSessionName}`)
         if (savedPulled) {
