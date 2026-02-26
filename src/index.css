@@ -117,6 +117,106 @@
   }
 }
 
+/* ── WhatsApp-style chat (TeamChat component) ── */
+.wa-chat {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.wa-header {
+  background: linear-gradient(135deg, #00A699 0%, #008F82 100%);
+}
+
+.wa-avatar {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.wa-messages {
+  background-color: #efeae2;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.wa-bubble {
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.06);
+}
+
+.wa-bubble-out {
+  background: #d9fdd3;
+  color: #111b21;
+}
+
+.wa-bubble-in {
+  background: #ffffff;
+  color: #111b21;
+}
+
+.wa-sender-name {
+  color: #00A699;
+}
+
+.wa-timestamp {
+  color: rgba(0, 0, 0, 0.38);
+}
+
+.wa-bubble-out .wa-timestamp {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.wa-date-pill {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.wa-system-pill {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.wa-emoji-bar {
+  background: #f0f2f5;
+}
+
+.wa-quick-btn {
+  background: #e9edef;
+  color: #54656f;
+}
+
+.wa-quick-btn:hover {
+  background: #d1d7db;
+}
+
+.wa-input-bar {
+  background: #f0f2f5;
+}
+
+.wa-input-field {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.wa-text-input {
+  color: #111b21;
+}
+
+.wa-text-input::placeholder {
+  color: #8696a0;
+}
+
+.wa-input-icon {
+  color: #54656f;
+}
+
+.wa-input-icon:hover {
+  color: #3b4a54;
+}
+
+.wa-send-btn {
+  background: #00A699;
+}
+
+.wa-send-btn:hover:not(:disabled) {
+  background: #008F82;
+}
+
 @layer utilities {
   .bg-dot-grid {
     background-image: radial-gradient(circle, rgba(118,118,118,0.04) 1px, transparent 1px);
