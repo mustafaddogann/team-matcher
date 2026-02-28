@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '../lib/supabase'
 import TeamChat from './TeamChat'
 import VoiceBar from './VoiceBar'
+import DualVoiceBar from './DualVoiceBar'
 
 interface JoinPageProps {
   sessionId: string
@@ -423,7 +424,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         })}
 
         <div className="pt-2 md:hidden">
-          <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
+          <DualVoiceBar sessionId={sessionId} teamChannel={teamName} activeChannel={chatChannel} playerName={name.trim()} />
         </div>
       </div>
     )
@@ -453,7 +454,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
             )
           })}
           <div className="ml-auto hidden md:block">
-            <VoiceBar sessionId={sessionId} channel={chatChannel} playerName={name.trim()} />
+            <DualVoiceBar sessionId={sessionId} teamChannel={teamName} activeChannel={chatChannel} playerName={name.trim()} />
           </div>
         </div>
 
