@@ -120,6 +120,7 @@
 /* ── Discord-style chat (TeamChat component) ── */
 .dc-chat {
   background: transparent;
+  min-height: 0;
 }
 
 .dc-header {
@@ -169,7 +170,7 @@
 }
 
 .dc-msg:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .dc-body {
@@ -225,7 +226,8 @@
 }
 
 .dc-input-field {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .dc-text-input {
@@ -252,9 +254,40 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+.tm-voice-dock::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tm-voice-dock::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tm-voice-dock::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.tm-all-teams-panel {
+  overscroll-behavior: contain;
+}
+
+.tm-all-teams-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tm-all-teams-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tm-all-teams-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
 /* ── Teams-assigned app background ── */
 .tm-app-bg {
   background: linear-gradient(160deg, #0f0f23 0%, #1a1a2e 40%, #16213e 100%);
+  overscroll-behavior: none;
 }
 
 /* Staggered entrance for team cards */

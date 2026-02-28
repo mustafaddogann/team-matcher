@@ -226,6 +226,7 @@ export function useLiveSession(activeSessionName: string | null = null) {
       skill: rp.skill,
       excluded: false,
       lockedTeam: null,
+      lockSource: null,
     }))
     for (const rp of toPull) {
       pulledIdsRef.current.add(rp.dbId)

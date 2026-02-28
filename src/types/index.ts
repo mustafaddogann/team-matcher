@@ -1,9 +1,12 @@
+export type ParticipantLockSource = 'manual' | 'auto'
+
 export interface Participant {
   id: string
   name: string
   skill: number
   excluded: boolean
   lockedTeam: number | null // 0-indexed team number, or null if free
+  lockSource?: ParticipantLockSource | null
   role?: string
 }
 
@@ -19,6 +22,7 @@ export interface BalancerConfig {
   teamCount: number
   maxPerTeam?: number
   nameLanguage?: TeamNameLanguage
+  randomFn?: () => number
 }
 
 export interface TeamMetrics {

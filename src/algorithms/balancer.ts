@@ -5,11 +5,52 @@ function teamTotal(team: Team): number {
   return team.members.reduce((sum, p) => sum + p.skill, 0)
 }
 
+function teamSize(team: Team): number {
+  return team.members.length
+}
+
 function cloneTeams(teams: Team[]): Team[] {
   return teams.map(t => ({
     ...t,
     members: [...t.members],
   }))
+}
+
+function shuffleInPlace<T>(items: T[], randomFn: () => number): void {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(randomFn() * (i + 1))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+}
+
+function sortFreeParticipants(free: Participant[], randomFn: () => number): Participant[] {
+  const skillBuckets = new Map<number, Participant[]>()
+
+  for (const participant of free) {
+    const bucket = skillBuckets.get(participant.skill)
+    if (bucket) bucket.push(participant)
+    else skillBuckets.set(participant.skill, [participant])
+  }
+
+  const skillsDesc = [...skillBuckets.keys()].sort((a, b) => b - a)
+  const ordered: Participant[] = []
+
+  for (const skill of skillsDesc) {
+    const bucket = [...(skillBuckets.get(skill) ?? [])]
+    shuffleInPlace(bucket, randomFn)
+    ordered.push(...bucket)
+  }
+
+  return ordered
+}
+
+function chooseTeam(candidates: Team[], randomFn: () => number): Team {
+  const bestTotal = Math.min(...candidates.map(teamTotal))
+  const weakestTeams = candidates.filter(team => teamTotal(team) === bestTotal)
+  const smallestSize = Math.min(...weakestTeams.map(teamSize))
+  const bestTeams = weakestTeams.filter(team => teamSize(team) === smallestSize)
+
+  return bestTeams[Math.floor(randomFn() * bestTeams.length)]
 }
 
 /**
@@ -26,6 +67,7 @@ export function balanceTeams(
 ): Team[] {
   const { teamCount } = config
   const maxPerTeam = config.maxPerTeam ?? Math.ceil(participants.length / teamCount)
+  const randomFn = config.randomFn ?? Math.random
 
   // Create empty teams with curated names
   const names = getRandomTeamNames(config.nameLanguage ?? 'en', teamCount)
@@ -51,32 +93,14 @@ export function balanceTeams(
     }
   }
 
-  // Snake draft: sort free participants by skill descending
-  const sorted = [...free].sort((a, b) => b.skill - a.skill)
+  // Snake draft: keep stronger players first, but randomize inside tied-skill buckets.
+  const sorted = sortFreeParticipants(free, randomFn)
 
   for (const p of sorted) {
-    // Find team with lowest total that still has room
-    let bestTeam: Team | null = null
-    let bestTotal = Infinity
-
-    for (const team of teams) {
-      if (team.members.length < maxPerTeam && teamTotal(team) < bestTotal) {
-        bestTotal = teamTotal(team)
-        bestTeam = team
-      }
-    }
-
-    // If all teams at max, find any team with lowest total
-    if (!bestTeam) {
-      for (const team of teams) {
-        if (teamTotal(team) < bestTotal) {
-          bestTotal = teamTotal(team)
-          bestTeam = team
-        }
-      }
-    }
-
-    bestTeam!.members.push(p)
+    const teamsWithRoom = teams.filter(team => team.members.length < maxPerTeam)
+    const candidateTeams = teamsWithRoom.length > 0 ? teamsWithRoom : teams
+    const bestTeam = chooseTeam(candidateTeams, randomFn)
+    bestTeam.members.push(p)
   }
 
   // Local optimization: swap/move to reduce spread

@@ -17,12 +17,38 @@ function createEmptyParticipant(): Participant {
     skill: 0,
     excluded: false,
     lockedTeam: null,
+    lockSource: null,
   }
 }
 
 const DEFAULT_CONFIG: BalancerConfig = {
   teamCount: 2,
   nameLanguage: 'en',
+}
+
+function shouldIgnoreLegacyAutoLocks(
+  participants: Participant[],
+  teams: Team[],
+  teamCount: number,
+): boolean {
+  if (participants.length === 0 || teams.length !== teamCount) return false
+  if (!participants.every(p => p.lockedTeam !== null && p.lockSource == null)) return false
+
+  const currentAssignments = new Map<string, number>()
+  for (const team of teams) {
+    for (const member of team.members) {
+      currentAssignments.set(member.id, team.index)
+    }
+  }
+
+  return participants.every(p => currentAssignments.get(p.id) === p.lockedTeam)
+}
+
+function isHardLocked(participant: Participant, ignoreLegacyAutoLocks: boolean): boolean {
+  if (participant.lockedTeam === null) return false
+  if (participant.lockSource === 'auto') return false
+  if (ignoreLegacyAutoLocks && participant.lockSource == null) return false
+  return true
 }
 
 export function useTeamMatcher() {
@@ -86,7 +112,16 @@ export function useTeamMatcher() {
     )
     if (activeParticipants.length < config.teamCount) return
 
-    const result = balanceTeams(activeParticipants, config)
+    const ignoreLegacyAutoLocks = shouldIgnoreLegacyAutoLocks(
+      activeParticipants,
+      teams,
+      config.teamCount,
+    )
+    const playersForBalancing = activeParticipants.map(p =>
+      isHardLocked(p, ignoreLegacyAutoLocks) ? p : { ...p, lockedTeam: null, lockSource: null },
+    )
+
+    const result = balanceTeams(playersForBalancing, config)
 
     // Preserve existing team names on regeneration
     if (teams.length > 0) {
@@ -96,20 +131,37 @@ export function useTeamMatcher() {
       }
     }
 
-    // Auto-lock all assigned participants to their teams
-    const lockMap = new Map<string, number>()
+    const assignedTeamById = new Map<string, number>()
     for (const team of result) {
       for (const member of team.members) {
-        lockMap.set(member.id, team.index)
+        assignedTeamById.set(member.id, team.index)
       }
     }
-    setParticipants(prev =>
-      prev.map(p => lockMap.has(p.id) ? { ...p, lockedTeam: lockMap.get(p.id)! } : p),
-    )
 
-    setTeams(result)
-    setAutoTeams(result.map(t => ({ ...t, members: [...t.members] })))
-  }, [participants, config, teams])
+    const updatedParticipants = participants.map(p => {
+      const assignedTeam = assignedTeamById.get(p.id)
+      if (assignedTeam === undefined) return p
+      const nextLockSource: Participant['lockSource'] = isHardLocked(p, ignoreLegacyAutoLocks)
+        ? 'manual'
+        : 'auto'
+
+      return {
+        ...p,
+        lockedTeam: assignedTeam,
+        lockSource: nextLockSource,
+      }
+    })
+
+    const participantMap = new Map(updatedParticipants.map(p => [p.id, p]))
+    const teamsWithLockState = result.map(team => ({
+      ...team,
+      members: team.members.map(member => participantMap.get(member.id) ?? member),
+    }))
+
+    setParticipants(updatedParticipants)
+    setTeams(teamsWithLockState)
+    setAutoTeams(teamsWithLockState.map(t => ({ ...t, members: [...t.members] })))
+  }, [participants, config, teams, setParticipants])
 
   const renameTeam = useCallback(
     (teamIndex: number, newName: string) => {

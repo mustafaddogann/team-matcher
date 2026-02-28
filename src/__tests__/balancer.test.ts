@@ -13,6 +13,22 @@ function makeParticipant(name: string, skill: number, overrides?: Partial<Partic
   }
 }
 
+function serializeMembers(teams: ReturnType<typeof balanceTeams>): string {
+  return teams
+    .map(team => team.members.map(member => member.name).sort().join(','))
+    .sort()
+    .join(' | ')
+}
+
+function makeRandom(sequence: number[]): () => number {
+  let idx = 0
+  return () => {
+    const value = sequence[idx % sequence.length]
+    idx += 1
+    return value
+  }
+}
+
 describe('balanceTeams', () => {
   it('splits 10 players into 2 balanced teams', () => {
     const players = [
@@ -99,6 +115,28 @@ describe('balanceTeams', () => {
     const teams = balanceTeams(players, { teamCount: 2 })
     const totals = teams.map(t => t.members.reduce((s, m) => s + m.skill, 0))
     expect(totals[0]).toBe(totals[1])
+  })
+
+  it('can produce different team combinations for equal-skill players', () => {
+    const players = Array.from({ length: 6 }, (_, i) =>
+      makeParticipant(`P${i}`, 50),
+    )
+
+    const first = balanceTeams(players, {
+      teamCount: 2,
+      randomFn: makeRandom([0.05, 0.95, 0.15, 0.85, 0.25, 0.75, 0.35, 0.65]),
+    })
+    const second = balanceTeams(players, {
+      teamCount: 2,
+      randomFn: makeRandom([0.95, 0.05, 0.85, 0.15, 0.75, 0.25, 0.65, 0.35]),
+    })
+
+    expect(serializeMembers(first)).not.toBe(serializeMembers(second))
+
+    const firstTotals = first.map(t => t.members.reduce((sum, member) => sum + member.skill, 0))
+    const secondTotals = second.map(t => t.members.reduce((sum, member) => sum + member.skill, 0))
+    expect(firstTotals[0]).toBe(firstTotals[1])
+    expect(secondTotals[0]).toBe(secondTotals[1])
   })
 
   it('handles minimum participants', () => {

@@ -27,7 +27,7 @@ export default function ParticipantTable({
   const hasAnyLocked = participants.some(p => p.lockedTeam !== null)
 
   const unlockAll = () => {
-    onSetParticipants(participants.map(p => ({ ...p, lockedTeam: null })))
+    onSetParticipants(participants.map(p => ({ ...p, lockedTeam: null, lockSource: null })))
   }
 
   return (
@@ -123,6 +123,7 @@ export default function ParticipantTable({
                     onChange={e =>
                       onUpdate(p.id, {
                         lockedTeam: e.target.value === '' ? null : Number(e.target.value),
+                        lockSource: e.target.value === '' ? null : 'manual',
                       })
                     }
                     className="input-field text-sm py-1.5"
@@ -213,6 +214,7 @@ export default function ParticipantTable({
                   onChange={e =>
                     onUpdate(p.id, {
                       lockedTeam: e.target.value === '' ? null : Number(e.target.value),
+                      lockSource: e.target.value === '' ? null : 'manual',
                     })
                   }
                   className="input-field text-sm py-1.5 w-full"

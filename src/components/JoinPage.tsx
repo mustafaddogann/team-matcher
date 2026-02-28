@@ -2,25 +2,30 @@ import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '../lib/supabase'
 import TeamChat from './TeamChat'
 import VoiceBar from './VoiceBar'
-import DualVoiceBar from './DualVoiceBar'
 
 interface JoinPageProps {
   sessionId: string
 }
 
 type Status = 'idle' | 'submitting' | 'success' | 'error' | 'editing' | 'kicked'
-type Tab = 'teams' | 'chat'
 
 const JOINED_KEY_PREFIX = 'tm-joined-'
 const TEAM_KEY_PREFIX = 'tm-team-'
 const TEAMS_KEY_PREFIX = 'tm-teams-data-'
 const CHANNEL_KEY_PREFIX = 'tm-channel-'
+const LEGACY_VOICE_CHANNEL_KEY_PREFIX = 'tm-voice-channel-'
 
 function loadJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
     return raw ? JSON.parse(raw) : fallback
-  } catch { return fallback }
+  } catch {
+    return fallback
+  }
+}
+
+function isChannelValid(channel: string, teamName: string | null): boolean {
+  return channel === '__lobby__' || (!!teamName && channel === teamName)
 }
 
 export default function JoinPage({ sessionId }: JoinPageProps) {
@@ -35,15 +40,13 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   const [allTeams, setAllTeams] = useState<Record<string, string[]>>(
     () => loadJson(`${TEAMS_KEY_PREFIX}${sessionId}`, {}),
   )
-  const [chatChannel, setChatChannel] = useState<string>(
+  const [activeChannel, setActiveChannel] = useState<string>(
     () => localStorage.getItem(`${CHANNEL_KEY_PREFIX}${sessionId}`) || '__lobby__',
   )
+  const [allTeamsOpen, setAllTeamsOpen] = useState(false)
   const [originalName, setOriginalName] = useState(savedName || '')
-  const [activeTab, setActiveTab] = useState<Tab>('teams')
   const kickMissCount = useRef(0)
 
-
-  // Persist team state to localStorage
   useEffect(() => {
     if (teamName) {
       localStorage.setItem(`${TEAM_KEY_PREFIX}${sessionId}`, teamName)
@@ -55,16 +58,23 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
   useEffect(() => {
     if (Object.keys(allTeams).length > 0) {
       localStorage.setItem(`${TEAMS_KEY_PREFIX}${sessionId}`, JSON.stringify(allTeams))
+    } else {
+      localStorage.removeItem(`${TEAMS_KEY_PREFIX}${sessionId}`)
     }
   }, [allTeams, sessionId])
 
   useEffect(() => {
-    localStorage.setItem(`${CHANNEL_KEY_PREFIX}${sessionId}`, chatChannel)
-  }, [chatChannel, sessionId])
+    if (isChannelValid(activeChannel, teamName)) {
+      localStorage.setItem(`${CHANNEL_KEY_PREFIX}${sessionId}`, activeChannel)
+      return
+    }
 
-  // Load current skill from DB on mount if already joined
+    setActiveChannel('__lobby__')
+  }, [activeChannel, teamName, sessionId])
+
   useEffect(() => {
     if (!savedName) return
+
     const supabase = getSupabase()
     if (!supabase) return
 
@@ -136,7 +146,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
 
         const { error } = await supabase
           .from('live_players')
-          .update({ name: newName, skill: skill })
+          .update({ name: newName, skill })
           .eq('session_id', sessionId)
           .eq('name', originalName)
 
@@ -145,7 +155,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         setOriginalName(newName)
         localStorage.setItem(`${JOINED_KEY_PREFIX}${sessionId}`, newName)
       } else {
-        // Check if a record with this name already exists (reconnecting player)
         const { data: existing } = await supabase
           .from('live_players')
           .select('id, skill')
@@ -154,7 +163,6 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           .limit(1)
 
         if (existing && existing.length > 0) {
-          // Reclaim: update skill and resume the session
           await supabase
             .from('live_players')
             .update({ skill })
@@ -164,7 +172,7 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           const { error } = await supabase.from('live_players').insert({
             session_id: sessionId,
             name: name.trim(),
-            skill: skill,
+            skill,
           })
           if (error) throw error
         }
@@ -211,16 +219,18 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     localStorage.removeItem(`${TEAM_KEY_PREFIX}${sessionId}`)
     localStorage.removeItem(`${TEAMS_KEY_PREFIX}${sessionId}`)
     localStorage.removeItem(`${CHANNEL_KEY_PREFIX}${sessionId}`)
+    localStorage.removeItem(`${LEGACY_VOICE_CHANNEL_KEY_PREFIX}${sessionId}`)
+
     setStatus('idle')
     setName('')
     setSkill(5)
     setOriginalName('')
     setTeamName(null)
     setAllTeams({})
-    setChatChannel('__lobby__')
+    setActiveChannel('__lobby__')
+    setAllTeamsOpen(false)
   }
 
-  // Check if player was kicked
   useEffect(() => {
     if (status !== 'success') return
 
@@ -234,15 +244,17 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
       localStorage.removeItem(`${TEAM_KEY_PREFIX}${sessionId}`)
       localStorage.removeItem(`${TEAMS_KEY_PREFIX}${sessionId}`)
       localStorage.removeItem(`${CHANNEL_KEY_PREFIX}${sessionId}`)
+      localStorage.removeItem(`${LEGACY_VOICE_CHANNEL_KEY_PREFIX}${sessionId}`)
+
       setStatus('kicked')
       setOriginalName('')
       setTeamName(null)
       setAllTeams({})
-      setChatChannel('__lobby__')
+      setActiveChannel('__lobby__')
+      setAllTeamsOpen(false)
     }
 
     const checkKicked = async () => {
-      // Method 1: explicit kick list — immediate
       try {
         const { data } = await supabase
           .from('session_teams')
@@ -258,11 +270,9 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           }
         }
       } catch {
-        // no kick record, continue
+        // no kick record
       }
 
-      // Method 2: check live_players — require 3 consecutive misses
-      // to avoid false kicks from transient network issues or cold starts
       try {
         const { data } = await supabase
           .from('live_players')
@@ -280,19 +290,23 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           kickMissCount.current = 0
         }
       } catch {
-        // network error — don't count as a miss
+        // network error
       }
     }
 
-    // Delay first check to let Supabase connection settle after refresh
     const initialDelay = setTimeout(() => {
-      checkKicked()
+      void checkKicked()
     }, 3000)
-    const poll = setInterval(checkKicked, 2000)
-    return () => { clearTimeout(initialDelay); clearInterval(poll) }
+    const poll = setInterval(() => {
+      void checkKicked()
+    }, 2000)
+
+    return () => {
+      clearTimeout(initialDelay)
+      clearInterval(poll)
+    }
   }, [status, sessionId, name])
 
-  // Poll for published team results
   useEffect(() => {
     if (status !== 'success') return
 
@@ -306,11 +320,13 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         .eq('session_id', sessionId)
         .single()
 
-      if (!data?.teams_json) return
+      if (!data?.teams_json) {
+        setTeamName(null)
+        return
+      }
 
       try {
         const teams: { name: string; members: string[] }[] = JSON.parse(data.teams_json)
-
         const grouped: Record<string, string[]> = {}
         let myTeam: string | null = null
 
@@ -322,357 +338,270 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
         }
 
         setAllTeams(grouped)
-        if (myTeam) {
-          setTeamName(prev => {
-            if (!prev) setChatChannel(myTeam)
-            return myTeam
-          })
-        }
+        setTeamName(myTeam)
       } catch {
         // Invalid JSON
       }
     }
 
-    check()
-    const poll = setInterval(check, 2000)
+    void check()
+    const poll = setInterval(() => {
+      void check()
+    }, 2000)
+
     return () => clearInterval(poll)
   }, [status, sessionId, name])
 
-  // ── TEAMS ASSIGNED — full-screen app layout ──
-  if (status === 'success' && teamName) {
-    const teamEntries = Object.entries(allTeams).sort(([a], [b]) => {
-      if (a === teamName) return -1
-      if (b === teamName) return 1
-      return a.localeCompare(b)
-    })
+  const isEditing = status === 'editing'
+  const teamMembers = teamName ? (allTeams[teamName] ?? [name.trim()]) : []
+  const teamEntries = Object.entries(allTeams).sort(([left], [right]) => {
+    if (left === teamName) return -1
+    if (right === teamName) return 1
+    return left.localeCompare(right)
+  })
+  const displayTeamLabel = teamName && teamName.length <= 16 ? teamName : 'Team'
+  const activeChannelLabel = activeChannel === '__lobby__' ? 'Lobby' : (displayTeamLabel || 'Team')
+  const activeChannelDetail = activeChannel === '__lobby__'
+    ? 'Everyone in the session'
+    : (teamName || 'Your team only')
 
-    const TEAM_COLORS = [
-      { bg: 'from-[#FF385C]/15 to-[#D70466]/8', border: 'border-[#FF385C]/25', badge: 'bg-[#FF385C]', glow: 'shadow-[0_0_30px_rgba(255,56,92,0.15)]' },
-      { bg: 'from-[#00A699]/15 to-[#00867A]/8', border: 'border-[#00A699]/25', badge: 'bg-[#00A699]', glow: 'shadow-[0_0_30px_rgba(0,166,153,0.15)]' },
-      { bg: 'from-[#6C5CE7]/15 to-[#5A4BD1]/8', border: 'border-[#6C5CE7]/25', badge: 'bg-[#6C5CE7]', glow: 'shadow-[0_0_30px_rgba(108,92,231,0.15)]' },
-      { bg: 'from-[#FC642D]/15 to-[#E8571F]/8', border: 'border-[#FC642D]/25', badge: 'bg-[#FC642D]', glow: 'shadow-[0_0_30px_rgba(252,100,45,0.15)]' },
-      { bg: 'from-[#0984E3]/15 to-[#0770C2]/8', border: 'border-[#0984E3]/25', badge: 'bg-[#0984E3]', glow: 'shadow-[0_0_30px_rgba(9,132,227,0.15)]' },
-      { bg: 'from-[#E17055]/15 to-[#D35D43]/8', border: 'border-[#E17055]/25', badge: 'bg-[#E17055]', glow: 'shadow-[0_0_30px_rgba(225,112,85,0.15)]' },
-    ]
+  const renderHeader = (showWaiting: boolean) => (
+    <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.05] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex items-center gap-4">
+          <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-extrabold text-white shadow-lg ${
+            teamName
+              ? 'bg-gradient-to-br from-[#FF385C] to-[#D70466] shadow-[#FF385C]/20'
+              : 'bg-gradient-to-br from-[#00A699] to-[#00867A] shadow-[#00A699]/20'
+          }`}>
+            {name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">
+              {showWaiting ? 'Lobby Ready' : 'Player'}
+            </p>
+            <h1 className="truncate text-xl font-extrabold text-white">{name}</h1>
+            <p className="mt-1 text-sm text-white/35">
+              Skill {skill} &middot; {sessionId}
+            </p>
+          </div>
+        </div>
 
-    const teamsPanel = (
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 md:px-5">
-        {teamEntries.map(([team, members], idx) => {
-          const isMyTeam = team === teamName
-          const colors = TEAM_COLORS[idx % TEAM_COLORS.length]
-          return (
-            <div
-              key={team}
-              className={`team-card-enter rounded-2xl p-4 transition-all border backdrop-blur-sm ${
-                isMyTeam
-                  ? `bg-gradient-to-br ${colors.bg} ${colors.border} ${colors.glow}`
-                  : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
-              }`}
-              style={{ animationDelay: `${idx * 80}ms` }}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleEdit}
+            className="rounded-xl p-2.5 text-white/30 transition-all hover:bg-white/5 hover:text-white/70"
+            title="Edit name or skill"
+          >
+            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+          <button
+            onClick={handleLeave}
+            className="rounded-xl p-2.5 text-white/30 transition-all hover:bg-rausch/10 hover:text-rausch"
+            title="Leave session"
+          >
+            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[12px] font-medium text-white/65">
+          Channel: {activeChannelLabel}
+        </span>
+        <span className="rounded-full bg-white/[0.04] px-3 py-1 text-[12px] text-white/35">
+          {activeChannelDetail}
+        </span>
+        {showWaiting && (
+          <span className="rounded-full bg-babu/12 px-3 py-1 text-[12px] font-medium text-babu">
+            Waiting for team assignment
+          </span>
+        )}
+      </div>
+    </div>
+  )
+
+  const renderAllTeamsCard = () => {
+    if (!teamName || teamEntries.length === 0) return null
+
+    return (
+      <div className="mt-4 rounded-[24px] border border-white/[0.1] bg-white/[0.05] p-4 shadow-[0_16px_44px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+        <button
+          onClick={() => setAllTeamsOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-4 text-left"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF385C]/90 to-[#D70466]/85 text-sm font-extrabold text-white shadow-[0_10px_30px_rgba(215,4,102,0.28)]">
+                AT
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-extrabold uppercase tracking-[0.18em] text-white">
+                  All Teams
+                </p>
+                <p className="mt-0.5 truncate text-sm text-white/68">
+                  Your team: {teamName} · {teamMembers.length} players
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-[12px] text-white/48">
+              {teamEntries.length} teams, {teamEntries.reduce((sum, [, members]) => sum + members.length, 0)} players
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.07] px-3 py-1 text-[11px] font-semibold text-white/75">
+              {allTeamsOpen ? 'Hide' : 'Show'}
+            </span>
+            <svg
+              className={`h-4 w-4 text-white/70 transition-transform ${allTeamsOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              {/* Team header */}
-              <div className="flex items-center gap-3 mb-3">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {allTeamsOpen && (
+          <div className="tm-all-teams-panel mt-4 max-h-[28dvh] space-y-3 overflow-y-auto pr-1">
+            {teamEntries.map(([team, members]) => {
+              const isMyTeam = team === teamName
+              return (
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-[14px] font-extrabold text-white ${
-                    isMyTeam ? colors.badge : 'bg-white/10'
+                  key={team}
+                  className={`rounded-2xl border p-3 ${
+                    isMyTeam
+                      ? 'border-[#FF385C]/18 bg-[#FF385C]/10'
+                      : 'border-white/[0.06] bg-white/[0.03]'
                   }`}
                 >
-                  {team.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-[14px] font-bold leading-tight truncate ${isMyTeam ? 'text-white' : 'text-white/60'}`}>
-                    {team}
-                  </p>
-                  <p className={`text-[11px] ${isMyTeam ? 'text-white/50' : 'text-white/25'}`}>
-                    {members.length} player{members.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                {isMyTeam && (
-                  <span className="text-[10px] font-bold text-white tracking-wider bg-white/15 px-2.5 py-1 rounded-full uppercase">
-                    Your Team
-                  </span>
-                )}
-              </div>
-
-              {/* Members */}
-              <div className="flex flex-wrap gap-2">
-                {members.map(m => {
-                  const isMe = m.toLowerCase() === name.trim().toLowerCase()
-                  return (
-                    <div
-                      key={m}
-                      className={`flex items-center gap-1.5 text-[12px] pl-1.5 pr-2.5 py-1 rounded-full font-medium transition-all ${
-                        isMe
-                          ? `${colors.badge} text-white`
-                          : isMyTeam
-                            ? 'bg-white/[0.08] text-white/80 border border-white/[0.06]'
-                            : 'bg-white/[0.04] text-white/40 border border-white/[0.04]'
-                      }`}
-                    >
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                        isMe ? 'bg-white/25' : isMyTeam ? 'bg-white/10' : 'bg-white/[0.06]'
-                      }`}>
-                        {m.charAt(0).toUpperCase()}
-                      </div>
-                      {m}
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`truncate text-sm font-semibold ${isMyTeam ? 'text-white' : 'text-white/78'}`}>
+                        {team}
+                      </p>
+                      <p className="text-[11px] text-white/35">
+                        {members.length} player{members.length !== 1 ? 's' : ''}
+                      </p>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+                    {isMyTeam && (
+                      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                        Your Team
+                      </span>
+                    )}
+                  </div>
 
-        <div className="pt-2 md:hidden">
-          <DualVoiceBar sessionId={sessionId} teamChannel={teamName} activeChannel={chatChannel} playerName={name.trim()} />
-        </div>
-      </div>
-    )
-
-    const chatPanel = (
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* Channel switcher + voice */}
-        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-white/[0.06]">
-          {[
-            { key: '__lobby__', label: 'Lobby' },
-            { key: teamName, label: teamName },
-          ].map(ch => {
-            const active = chatChannel === ch.key
-            return (
-              <button
-                key={ch.key}
-                onClick={() => setChatChannel(ch.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
-                  active
-                    ? 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                    : 'text-white/30 hover:text-white/55 hover:bg-white/[0.04]'
-                }`}
-              >
-                <span className={`text-[10px] ${active ? 'text-white/50' : 'text-white/20'}`}>#</span>
-                {ch.label}
-              </button>
-            )
-          })}
-          <div className="ml-auto hidden md:block">
-            <DualVoiceBar sessionId={sessionId} teamChannel={teamName} activeChannel={chatChannel} playerName={name.trim()} />
+                  <div className="flex flex-wrap gap-2">
+                    {members.map((member) => {
+                      const isMe = member.toLowerCase() === name.trim().toLowerCase()
+                      return (
+                        <span
+                          key={member}
+                          className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                            isMe
+                              ? 'border-white/15 bg-white/12 text-white'
+                              : 'border-white/[0.08] bg-white/[0.05] text-white/65'
+                          }`}
+                        >
+                          {member}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
-
-        <div className="flex-1 min-h-0">
-          <TeamChat
-            sessionId={sessionId}
-            channel={chatChannel}
-            channelLabel={chatChannel === '__lobby__' ? 'Lobby' : chatChannel}
-            playerName={name.trim()}
-          />
-        </div>
+        )}
       </div>
     )
+  }
+
+  const renderChannelSwitcher = () => {
+    if (!teamName) return null
+
+    const options = [
+      { key: '__lobby__', label: 'Lobby' },
+      { key: teamName, label: displayTeamLabel || 'Team' },
+    ]
 
     return (
-      <div className="tm-app-bg flex flex-col" style={{ height: '100dvh' }}>
-        {/* Ambient glow effects */}
-        <div className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="absolute -top-[40%] -left-[20%] w-[60%] h-[60%] rounded-full bg-[#FF385C]/[0.03] blur-[100px]" />
-          <div className="absolute -bottom-[30%] -right-[15%] w-[50%] h-[50%] rounded-full bg-[#00A699]/[0.03] blur-[100px]" />
-        </div>
-
-        {/* ── Top bar ── */}
-        <div className="relative z-10 px-4 md:px-8 pt-5 pb-4 flex items-center justify-between max-w-screen-xl mx-auto w-full">
-          <div className="flex items-center gap-4 min-w-0">
-            {/* Team emblem */}
-            <div className="relative">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-[#FF385C] to-[#D70466] flex items-center justify-center text-white font-extrabold text-xl md:text-2xl shadow-lg shadow-[#FF385C]/20">
-                {teamName.charAt(0).toUpperCase()}
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-babu border-2 border-[#0f0f23] flex items-center justify-center">
-                <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-            <div className="min-w-0">
-              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-[0.15em]">Your Team</p>
-              <p className="text-white font-extrabold text-lg md:text-xl leading-tight truncate">{teamName}</p>
-              <p className="text-white/30 text-[11px] mt-0.5">
-                Playing as <span className="text-white/60 font-medium">{name}</span> &middot; Skill {skill}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
+      <div className="mt-4 inline-flex w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] p-1">
+        {options.map((option) => {
+          const active = activeChannel === option.key
+          return (
             <button
-              onClick={handleEdit}
-              className="text-white/25 hover:text-white/60 hover:bg-white/5 transition-all p-2.5 rounded-xl"
-              title="Edit name or skill"
-            >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-            <button
-              onClick={handleLeave}
-              className="text-white/25 hover:text-rausch hover:bg-rausch/10 transition-all p-2.5 rounded-xl"
-              title="Leave session"
-            >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* ── Mobile: tab bar ── */}
-        <div className="relative z-10 px-4 flex gap-1 mb-1 md:hidden">
-          {[
-            { key: 'teams' as Tab, label: 'Teams', icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            )},
-            { key: 'chat' as Tab, label: 'Chat', icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            )},
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold rounded-xl transition-all ${
-                activeTab === tab.key
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/30 hover:text-white/50'
+              key={option.key}
+              onClick={() => setActiveChannel(option.key)}
+              className={`flex-1 rounded-[14px] px-4 py-3 text-sm font-semibold transition-all ${
+                active
+                  ? 'bg-white text-[#0f0f23] shadow-[0_10px_30px_rgba(255,255,255,0.12)]'
+                  : 'text-white/45 hover:text-white/70'
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              {option.label}
             </button>
-          ))}
-        </div>
-
-        {/* ── Desktop: side-by-side | Mobile: tabbed ── */}
-        <div className="relative z-10 flex-1 flex flex-col md:flex-row min-h-0 max-w-screen-xl mx-auto w-full">
-          {/* Teams panel */}
-          <div className={`md:w-[340px] lg:w-[400px] md:flex md:flex-col md:border-r md:border-white/[0.04] md:flex-shrink-0 ${
-            activeTab === 'teams' ? 'flex flex-col flex-1' : 'hidden md:flex'
-          }`}>
-            {teamsPanel}
-          </div>
-
-          {/* Chat panel */}
-          <div className={`md:flex md:flex-col md:flex-1 md:min-w-0 ${
-            activeTab === 'chat' ? 'flex flex-col flex-1' : 'hidden md:flex'
-          }`}>
-            {chatPanel}
-          </div>
-        </div>
+          )
+        })}
       </div>
     )
   }
 
-  // ── WAITING FOR TEAMS ──
+  const renderChatSurface = () => (
+    <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b1226]/70 shadow-[0_18px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+      <div className="border-b border-white/[0.06] px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/25">
+          Current Channel
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-white">{activeChannelLabel}</p>
+          <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-white/40">
+            {activeChannelDetail}
+          </span>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1">
+        <TeamChat
+          sessionId={sessionId}
+          channel={activeChannel}
+          channelLabel={activeChannelLabel}
+          playerName={name.trim()}
+        />
+      </div>
+    </div>
+  )
+
   if (status === 'success') {
     return (
-      <div className="tm-app-bg flex flex-col max-w-2xl mx-auto w-full" style={{ height: '100dvh' }}>
-        {/* Ambient glow */}
+      <div className="tm-app-bg flex h-[100dvh] overflow-hidden">
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="absolute -top-[30%] left-[10%] w-[50%] h-[50%] rounded-full bg-[#00A699]/[0.04] blur-[100px]" />
-          <div className="absolute -bottom-[20%] right-[5%] w-[40%] h-[40%] rounded-full bg-[#FF385C]/[0.03] blur-[80px]" />
+          <div className="absolute -top-[30%] left-[8%] h-[50%] w-[50%] rounded-full bg-[#FF385C]/[0.05] blur-[100px]" />
+          <div className="absolute -bottom-[20%] right-[5%] h-[45%] w-[45%] rounded-full bg-[#00A699]/[0.04] blur-[110px]" />
         </div>
 
-        {/* ── Status card ── */}
-        <div className="relative z-10 px-5 pt-6 pb-2">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-5 animate-fade-in">
-            <div className="flex items-center gap-4">
-              {/* Player avatar */}
-              <div className="relative flex-shrink-0">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-babu to-[#00867A] flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-babu/20">
-                  {name.charAt(0).toUpperCase()}
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-babu border-2 border-[#0f0f23] flex items-center justify-center">
-                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-extrabold text-lg leading-tight truncate">{name}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] font-semibold text-babu bg-babu/10 px-2 py-0.5 rounded-full">
-                    Skill {skill}
-                  </span>
-                  <span className="text-[11px] text-white/25">&middot;</span>
-                  <span className="text-[11px] text-white/30">{sessionId}</span>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={handleEdit}
-                  className="text-white/25 hover:text-white/60 hover:bg-white/5 transition-all p-2.5 rounded-xl"
-                  title="Edit name or skill"
-                >
-                  <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={handleLeave}
-                  className="text-white/25 hover:text-rausch hover:bg-rausch/10 transition-all p-2.5 rounded-xl"
-                  title="Leave session"
-                >
-                  <svg className="w-[16px] h-[16px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Waiting indicator */}
-            <div className="mt-4 pt-3.5 border-t border-white/[0.04] flex items-center gap-3">
-              <div className="relative w-5 h-5 flex-shrink-0">
-                <div className="absolute inset-0 rounded-full border-2 border-white/[0.06]" />
-                <div className="absolute inset-0 rounded-full border-2 border-rausch border-t-transparent animate-spin" />
-              </div>
-              <p className="text-white/35 text-[13px]">Waiting for the host to assign teams...</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Lobby chat ── */}
-        <div className="relative z-10 flex-1 flex flex-col min-h-0 px-5 pb-2 pt-3 space-y-2">
-          <div className="flex items-center gap-2 px-1">
-            <div className="flex items-center gap-1.5 bg-white/[0.06] px-3 py-1.5 rounded-lg">
-              <span className="text-white/25 text-[10px] font-bold">#</span>
-              <span className="text-white/60 text-[12px] font-semibold">Lobby</span>
-            </div>
-            <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-white/20 text-[11px]">Chat while you wait</span>
-          </div>
-
+        <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-5xl min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-5 sm:px-6 lg:px-8">
+          {renderHeader(!teamName)}
+          {renderAllTeamsCard()}
+          {renderChannelSwitcher()}
+          {renderChatSurface()}
           <VoiceBar
             sessionId={sessionId}
-            channel="__lobby__"
+            channel={activeChannel}
+            channelLabel={activeChannelLabel}
             playerName={name.trim()}
           />
-          <div className="flex-1 min-h-0">
-            <TeamChat
-              sessionId={sessionId}
-              channel="__lobby__"
-              channelLabel="Lobby"
-              playerName={name.trim()}
-            />
-          </div>
         </div>
       </div>
     )
   }
 
-  // ── KICKED ──
   if (status === 'kicked') {
     return (
       <div className="tm-app-bg min-h-screen flex items-center justify-center p-4">
@@ -704,19 +633,14 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
     )
   }
 
-  // ── JOIN / EDIT FORM ──
-  const isEditing = status === 'editing'
-
   return (
     <div className="tm-app-bg min-h-screen flex items-center justify-center p-4">
-      {/* Ambient glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-[30%] left-[10%] w-[50%] h-[50%] rounded-full bg-[#FF385C]/[0.04] blur-[100px]" />
         <div className="absolute -bottom-[20%] -right-[10%] w-[40%] h-[40%] rounded-full bg-[#00A699]/[0.03] blur-[80px]" />
       </div>
 
       <div className="relative z-10 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm p-7 max-w-sm w-full animate-fade-in">
-        {/* Session badge */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF385C] to-[#D70466] flex items-center justify-center flex-shrink-0 shadow-lg shadow-rausch/20">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -747,7 +671,10 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
             <input
               type="text"
               value={name}
-              onChange={e => { setName(e.target.value); if (status === 'error') setStatus('idle') }}
+              onChange={e => {
+                setName(e.target.value)
+                if (status === 'error') setStatus('idle')
+              }}
               required
               autoFocus
               placeholder="What should we call you?"
@@ -793,7 +720,11 @@ export default function JoinPage({ sessionId }: JoinPageProps) {
           {isEditing && (
             <button
               type="button"
-              onClick={() => { setStatus('success'); setName(originalName); setErrorMsg('') }}
+              onClick={() => {
+                setStatus('success')
+                setName(originalName)
+                setErrorMsg('')
+              }}
               className="w-full text-sm text-white/30 hover:text-white/60 font-medium transition-colors"
             >
               Cancel

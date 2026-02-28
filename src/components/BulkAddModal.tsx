@@ -34,6 +34,7 @@ export default function BulkAddModal({ onImport, existingParticipants, onClose }
         skill: p.skill,
         excluded: false,
         lockedTeam: null,
+        lockSource: null,
       }))
 
     const existing = existingParticipants.filter(p => p.name.trim())

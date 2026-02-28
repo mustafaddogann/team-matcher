@@ -54,6 +54,7 @@ export default function ImportModal({ onImport, onClose }: ImportModalProps) {
         skill: Number(r.skill) || 0,
         excluded: false,
         lockedTeam: null,
+        lockSource: null,
         role: r.role || undefined,
       }))
 
